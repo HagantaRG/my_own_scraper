@@ -1,0 +1,86 @@
+import csv
+import logging
+import os.path
+from datetime import datetime, timedelta
+
+from utils.indonesian_date_utils import months_translator
+from utils.news_utils import NewsInformation
+from utils.filepaths import DATA_FOLDER
+
+logger = logging.getLogger(__name__)
+news_data_headers: list[str] = ["link", "title", "date", "keywords", "retrieved_at"]
+run_data_headers: list[str] = ["job_name", "start_time", "end_time", "duration", "success", "error_message"]
+
+def translate_months(date_str: str) -> str:
+    for ind_month in months_translator.keys():
+        if ind_month in date_str:
+            eng_date: str = date_str.replace(ind_month, months_translator[ind_month])
+            return eng_date
+    raise Exception("No Indonesian months found in date str")
+
+def check_link_parsed_csv(news: NewsInformation) -> bool:
+    file_exists: bool = os.path.isfile(f"{DATA_FOLDER}/news_data.csv")
+    if not file_exists:
+        return False
+    with open(f"{DATA_FOLDER}/news_data.csv", "r", newline="", encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile, fieldnames=news_data_headers)
+        for row in reader:
+            if row["link"] == news.news_link and row["title"] == news.news_title:
+                return True
+    return False
+
+def write_info_to_csv(info: NewsInformation) -> None:
+    with open(f"{DATA_FOLDER}/news_data.csv", "a", newline="", encoding='utf-8') as csvfile:
+        writer = csv.DictWriter(csvfile, delimiter=",", fieldnames=news_data_headers)
+        keyword_string: str = ""
+
+        if len(info.relevant_keywords)>0:
+            for keyword in info.relevant_keywords[0:-1]:
+                keyword_string += f"{keyword},"
+            keyword_string+=f"{info.relevant_keywords[-1]}"
+
+        writer.writerow(
+            {
+                "link": info.news_link,
+                "title": info.news_title,
+                "date": info.news_date,
+                "keywords": keyword_string,
+                "retrieved_at": info.retrieved_at,
+            }
+        )
+
+def write_run_to_csv(
+        job_name: str,
+        start_time: datetime,
+        end_time: datetime,
+        duration: timedelta,
+) -> None:
+    with open(f"{DATA_FOLDER}/run_data.csv", "a", newline="", encoding='utf-8') as csvfile:
+        writer = csv.DictWriter(csvfile, delimiter=",", fieldnames=run_data_headers)
+        writer.writerow(
+            {
+                run_data_headers[0]: job_name,
+                run_data_headers[1]: start_time,
+                run_data_headers[2]: end_time,
+                run_data_headers[3]: duration,
+                run_data_headers[4]: True,
+            }
+        )
+
+def write_run_error_to_csv(
+        job_name: str,
+        start_time: datetime,
+        error_message: str
+) -> None:
+    with open(f"{DATA_FOLDER}/run_data.csv", "a", newline="", encoding='utf-8') as csvfile:
+        writer = csv.DictWriter(csvfile, delimiter=",", fieldnames=run_data_headers)
+        writer.writerow(
+            {
+                run_data_headers[0]: job_name,
+                run_data_headers[1]: start_time,
+                run_data_headers[2]: "ERROR",
+                run_data_headers[3]: "ERROR",
+                run_data_headers[4]: False,
+                run_data_headers[5]: error_message
+            }
+        )
