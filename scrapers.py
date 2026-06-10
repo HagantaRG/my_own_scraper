@@ -1,7 +1,7 @@
 import logging
-from datetime import datetime, timedelta
-from time import sleep
+from datetime import datetime
 from json import loads
+from time import sleep
 
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
@@ -11,7 +11,8 @@ from selenium.webdriver.support.wait import WebDriverWait
 from seleniumbase import Driver
 
 from utils.news_utils import NewsInformation
-from utils.scraper_utils import check_link_parsed_csv, write_info_to_csv, check_run_done
+from utils.scraper_utils import write_info_to_csv, check_run_done
+
 logger = logging.getLogger(__name__)
 
 # TODO: Standardise  variable names.
@@ -82,9 +83,8 @@ def scrape_hkx(keywords: list[str]) -> None:
                 )
 
                 last_page = check_run_done(news_info)
-
-
-                write_info_to_csv(news_info)
+                if relevant_keywords != [""]:
+                    write_info_to_csv(news_info)
                 count += 1
             logger.info(f"Done scraping HKX, scraped total of {count} announcements")
     finally:
@@ -141,8 +141,8 @@ def scrape_sgx(keywords: list[str]) -> None:
                 )
 
                 last_page = check_run_done(news_info)
-
-                write_info_to_csv(news_info)
+                if relevant_keywords != [""]:
+                    write_info_to_csv(news_info)
                 count += 1
             logger.info(f"Not at end of relevant announcements for SGX, going to next page.")
             page_num += 1
@@ -186,7 +186,8 @@ def scrape_bursa_my(keywords: list[str]) -> None:
                 )
 
                 last_page = check_run_done(news_info)
-                write_info_to_csv(news_info)
+                if relevant_keywords != [""]:
+                    write_info_to_csv(news_info)
                 count += 1
             if not last_page:
                 logger.info(f"Not at end of relevant announcements for Malaysia, going to next page.")
