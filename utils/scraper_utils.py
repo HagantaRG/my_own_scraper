@@ -84,3 +84,15 @@ def write_run_error_to_csv(
                 run_data_headers[5]: error_message
             }
         )
+
+def check_run_done(news: NewsInformation) -> bool:
+    if datetime.now() > news.news_date + timedelta(days=1, hours=12):
+        logger.info(
+            f"Announcement older than 1 day, 12 hours. Done looking through latest announcements, scrape finished.")
+        return True
+    elif check_link_parsed_csv(news):
+        logger.info(
+            f"Reached an already-parsed announcement at {news.news_link} Done looking through latest announcements, scrape finished.")
+        return True
+    else:
+        return False

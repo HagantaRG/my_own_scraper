@@ -11,7 +11,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from seleniumbase import Driver
 
 from utils.news_utils import NewsInformation
-from utils.scraper_utils import check_link_parsed_csv, write_info_to_csv
+from utils.scraper_utils import check_link_parsed_csv, write_info_to_csv, check_run_done
 logger = logging.getLogger(__name__)
 
 # TODO: Standardise  variable names.
@@ -81,14 +81,7 @@ def scrape_hkx(keywords: list[str]) -> None:
                     relevant_keywords=relevant_keywords if len(relevant_keywords) > 0 else [""]
                 )
 
-                if datetime.now() > announcement_date + timedelta(days=1, hours=12):
-                    logger.info(f"Announcement older than 1 day, 12 hours. Done looking through latest announcements, scrape finished.")
-                    last_page = True
-                    break
-                if check_link_parsed_csv(news_info) and announcement_link.startswith("https://www1.hkexnews"):
-                    logger.info(f"Reached an already-parsed announcement at {announcement_link} Done looking through latest announcements, scrape finished.")
-                    last_page = True
-                    break
+                last_page = check_run_done(news_info)
 
 
                 write_info_to_csv(news_info)
@@ -147,16 +140,7 @@ def scrape_sgx(keywords: list[str]) -> None:
                     relevant_keywords=relevant_keywords if len(relevant_keywords) > 0 else [""]
                 )
 
-                if datetime.now() > announcement_date + timedelta(days=1, hours=12):
-                    logger.info(
-                        f"Announcement older than 1 day, 12 hours. Done looking through latest announcements, scrape finished.")
-                    last_page = True
-                    break
-                if check_link_parsed_csv(news_info):
-                    logger.info(
-                        f"Reached an already-parsed announcement. Done looking through latest announcements, scrape finished.")
-                    last_page = True
-                    break
+                last_page = check_run_done(news_info)
 
                 write_info_to_csv(news_info)
                 count += 1
@@ -201,15 +185,7 @@ def scrape_bursa_my(keywords: list[str]) -> None:
                     relevant_keywords=relevant_keywords if len(relevant_keywords) > 0 else [""]
                 )
 
-                if datetime.now() > announcement_date + timedelta(days=1, hours=12):
-                    logger.info(f"Announcement older than 1 day, 12 hours. Done looking through latest announcements, scrape finished.")
-                    last_page = True
-                    break
-                if check_link_parsed_csv(news_info):
-                    logger.info(f"Reached an already-parsed announcement at {link} Done looking through latest announcements, scrape finished.")
-                    last_page = True
-                    break
-
+                last_page = check_run_done(news_info)
                 write_info_to_csv(news_info)
                 count += 1
             if not last_page:
