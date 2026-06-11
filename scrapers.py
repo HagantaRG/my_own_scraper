@@ -74,6 +74,7 @@ def scrape_hkx(keywords: list[str]) -> None:
 
                 relevant_keywords: list[str] = [keyword for keyword in keywords if
                                                 keyword in f"{announcement_title}{announcement_stock_name}".upper()]
+
                 news_info: NewsInformation = NewsInformation(
                     news_link=announcement_link,
                     news_date=announcement_date,
@@ -82,12 +83,13 @@ def scrape_hkx(keywords: list[str]) -> None:
                     relevant_keywords=relevant_keywords if len(relevant_keywords) > 0 else [""]
                 )
 
+                if news_info.relevant_keywords != [""]:
+                    write_info_to_csv(news_info)
+
                 if check_run_done(news_info):
                     last_page = True
                     break
 
-                if news_info.relevant_keywords != [""]:
-                    write_info_to_csv(news_info)
                 count += 1
             logger.info(f"Done scraping HKX, scraped total of {count} announcements")
     finally:
@@ -143,13 +145,12 @@ def scrape_sgx(keywords: list[str]) -> None:
                     relevant_keywords=relevant_keywords if len(relevant_keywords) > 0 else [""]
                 )
 
-                if check_run_done(news_info):
-                    last_page = True
-                    break
-
                 if news_info.relevant_keywords != [""]:
                     write_info_to_csv(news_info)
                 count += 1
+                if check_run_done(news_info):
+                    last_page = True
+                    break
             logger.info(f"Not at end of relevant announcements for SGX, going to next page.")
             page_num += 1
         logger.info(f"Done scraping SGX, scraped total of {count} announcements")
@@ -203,3 +204,64 @@ def scrape_bursa_my(keywords: list[str]) -> None:
         logger.info(f"Done scraping Malaysian exchange, scraped total of {count} announcements")
     finally:
         driver.quit()
+
+def scrape_szse(keywords: list[str]) -> None:
+    page_num: int = 1
+    last_page: bool = False
+    driver = Driver(uc=True, headless=False)
+    count: int = 0
+    scrape_link: str = f"https://www.szse.cn/disclosure/listed/notice/index.html"
+    logger.info(f"Starting scrape for {scrape_link}")
+    driver.get(scrape_link)
+    try:
+        while not last_page:
+            logger.info(f"SZSE page {page_num} scraping...")
+            WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.CLASS_NAME, "disclosure-tbody"))
+            )
+
+            announcements: list[WebElement] = driver.find_element(
+                By.CLASS_NAME, "disclosure-tbody"
+            ).find_elements(
+                By.TAG_NAME, "tr"
+            )
+
+            for announcement in announcements:
+                announcement_details: list[WebElement] = announcement.find_elements(By.TAG_NAME, "td")
+                announcement_stock_code: str = announcement_details[0].find_element(By.TAG_NAME, "a").text
+                announcement_stock_name: str = announcement_details[1].find_element(By.TAG_NAME, "a").text
+                announcement_files: list[WebElement] = announcement_details[2].find_elements(By.TAG_NAME, "a")
+                date_text: str = announcement_details[3].find_elements(By.TAG_NAME, "span")[0].text
+                # This date extraction is because the Shenzhen stock exchange for some reason uses *TWO* datetime formats.
+                announcement_date: datetime = datetime.strptime(
+                    date_text.split(" ")[0], "%Y-%m-%d"
+                )
+                for file in announcement_files:
+                    count += 1
+                    announcement_title: str = file.get_attribute("data-title")
+                    announcement_link: str = file.get_attribute("href")
+                    search_str: str = f"{announcement_title}{announcement_stock_code}{announcement_stock_name}"
+                    relevant_keywords: list[str] = [keyword for keyword in keywords if
+                                                    keyword in f"{search_str}".upper()]
+                    news_info: NewsInformation = NewsInformation(
+                        news_link=announcement_link,
+                        news_date=announcement_date,
+                        news_title=announcement_title,
+                        retrieved_at=datetime.now(),
+                        relevant_keywords=relevant_keywords if len(relevant_keywords) > 0 else [""]
+                    )
+                    if news_info.relevant_keywords != [""]:
+                        write_info_to_csv(news_info)
+            logger.info(f"Not at end of relevant announcements for SZSE after {count} docs scraped, going to next page.")
+            page_num += 1
+            paginator: WebElement = driver.find_element(By.ID, "paginator")
+            paginator_buttons: list[WebElement] = paginator.find_elements(By.TAG_NAME, "a")
+            if paginator_buttons[page_num-1].get_attribute("class") == "last":
+                logger.info(f"Last page of SZSE reached. Ending.")
+                last_page = True
+                break
+            else:
+                paginator_buttons[page_num].click()
+                sleep(1)
+    finally:
+            driver.quit()
