@@ -1,6 +1,6 @@
 import csv
 import logging
-import os.path
+from os import path, makedirs
 from datetime import datetime, timedelta
 
 from utils.indonesian_date_utils import months_translator
@@ -19,7 +19,7 @@ def translate_months(date_str: str) -> str:
     raise Exception("No Indonesian months found in date str")
 
 def check_link_parsed_csv(news: NewsInformation) -> bool:
-    file_exists: bool = os.path.isfile(f"{DATA_FOLDER}/news_data.csv")
+    file_exists: bool = path.isfile(f"{DATA_FOLDER}/news_data.csv")
     if not file_exists:
         return False
     with open(f"{DATA_FOLDER}/news_data.csv", "r", newline="", encoding='utf-8') as csvfile:
@@ -30,6 +30,8 @@ def check_link_parsed_csv(news: NewsInformation) -> bool:
     return False
 
 def write_info_to_csv(info: NewsInformation) -> None:
+    filename: str = f"{DATA_FOLDER}/news_data.csv"
+    makedirs(f"{DATA_FOLDER}", exist_ok=True)
     with open(f"{DATA_FOLDER}/news_data.csv", "a", newline="", encoding='utf-8') as csvfile:
         writer = csv.DictWriter(csvfile, delimiter=",", fieldnames=news_data_headers)
         keyword_string: str = ""
@@ -55,7 +57,9 @@ def write_run_to_csv(
         end_time: datetime,
         duration: timedelta,
 ) -> None:
-    with open(f"{DATA_FOLDER}/run_data.csv", "a", newline="", encoding='utf-8') as csvfile:
+    filename: str = f"{DATA_FOLDER}/run_data.csv"
+    makedirs(f"{DATA_FOLDER}", exist_ok=True)
+    with open(filename, "a", newline="", encoding='utf-8') as csvfile:
         writer = csv.DictWriter(csvfile, delimiter=",", fieldnames=run_data_headers)
         writer.writerow(
             {

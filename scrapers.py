@@ -82,8 +82,11 @@ def scrape_hkx(keywords: list[str]) -> None:
                     relevant_keywords=relevant_keywords if len(relevant_keywords) > 0 else [""]
                 )
 
-                last_page = check_run_done(news_info)
-                if relevant_keywords != [""]:
+                if check_run_done(news_info):
+                    last_page = True
+                    break
+
+                if news_info.relevant_keywords != [""]:
                     write_info_to_csv(news_info)
                 count += 1
             logger.info(f"Done scraping HKX, scraped total of {count} announcements")
@@ -140,8 +143,11 @@ def scrape_sgx(keywords: list[str]) -> None:
                     relevant_keywords=relevant_keywords if len(relevant_keywords) > 0 else [""]
                 )
 
-                last_page = check_run_done(news_info)
-                if relevant_keywords != [""]:
+                if check_run_done(news_info):
+                    last_page = True
+                    break
+
+                if news_info.relevant_keywords != [""]:
                     write_info_to_csv(news_info)
                 count += 1
             logger.info(f"Not at end of relevant announcements for SGX, going to next page.")
@@ -185,8 +191,11 @@ def scrape_bursa_my(keywords: list[str]) -> None:
                     relevant_keywords=relevant_keywords if len(relevant_keywords) > 0 else [""]
                 )
 
-                last_page = check_run_done(news_info)
-                if relevant_keywords != [""]:
+                if check_run_done(news_info):
+                    last_page = True
+                    break
+
+                if news_info.relevant_keywords != [""]:
                     write_info_to_csv(news_info)
                 count += 1
             if not last_page:

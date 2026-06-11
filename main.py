@@ -8,6 +8,7 @@ from collections.abc import Callable
 from time import sleep
 from smtplib import SMTPException
 import shutil
+from os import makedirs
 
 # Third party libs
 from selenium.common.exceptions import WebDriverException
@@ -29,10 +30,12 @@ Functionality:
 - Log success/failures of scrape jobs
 """
 
+log_file: str = f"{LOGS_FOLDER}/scraper.log"
+makedirs(f"{LOGS_FOLDER}", exist_ok=True)
 logging.basicConfig(
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler(f"{LOGS_FOLDER}/scraper.log"),
+        logging.FileHandler(log_file),
     ],
     level=logging.INFO,
     format="[%(asctime)s] - %(name)s - %(levelname)s - %(message)s",
