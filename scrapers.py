@@ -208,7 +208,7 @@ def scrape_bursa_my(keywords: list[str]) -> None:
 def scrape_szse(keywords: list[str]) -> None:
     page_num: int = 1
     last_page: bool = False
-    driver = Driver(uc=True, headless=False)
+    driver = Driver(uc=True, headless=True)
     count: int = 0
     scrape_link: str = f"https://www.szse.cn/disclosure/listed/notice/index.html"
     logger.info(f"Starting scrape for {scrape_link}")
