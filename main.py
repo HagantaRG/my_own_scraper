@@ -35,11 +35,11 @@ makedirs(f"{LOGS_FOLDER}", exist_ok=True)
 logging.basicConfig(
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler(log_file),
+        logging.FileHandler(filename=log_file, encoding='utf-8'),
     ],
     level=logging.INFO,
     format="[%(asctime)s] - %(name)s - %(levelname)s - %(message)s",
-    datefmt='%m/%d/%Y %I:%M:%S %p'
+    datefmt='%m/%d/%Y %I:%M:%S %p',
 )
 
 def run_scrape_job(
@@ -88,7 +88,7 @@ def main():
 
     # Parse keywords, remove any duplicates.
     # This is bad. Please fix it.
-    with open(f"temp/keywords-1.csv", "r") as f:
+    with open(f"temp/keywords-1.csv", "r", encoding='utf-8') as f:
         keywords: list[str] = f.read().splitlines()
     keywords = [word.upper() for word in keywords]
     keywords = list(set(keywords))
