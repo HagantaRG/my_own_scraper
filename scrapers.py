@@ -257,13 +257,10 @@ def scrape_szse(keywords: list[str]) -> None:
                     if news_info.relevant_keywords != [""]:
                         write_info_to_csv(news_info)
 
-            logger.info(f"Not at end of relevant announcements for SZSE after {count} docs scraped, going to next page.")
-            page_num += 1
             paginator: WebElement = driver.find_element(By.ID, "paginator")
             paginator_buttons: list[WebElement] = paginator.find_elements(By.TAG_NAME, "a")
-            if paginator_buttons[page_num-1].get_attribute("class") == "last":
+            if "last" in paginator_buttons[page_num-1].get_attribute("class") :
                 logger.info(f"Last page of SZSE reached. Ending.")
-                last_page = True
                 break
             else:
                 logger.info(
