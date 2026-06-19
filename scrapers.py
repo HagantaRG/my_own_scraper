@@ -198,8 +198,6 @@ def scrape_bursa_my(keywords: list[str]) -> None:
 
                 if check_run_done(news_info):
                     last_page = True
-                    break
-
                 if news_info.relevant_keywords != [""]:
                     write_info_to_csv(news_info)
                 if last_page:
