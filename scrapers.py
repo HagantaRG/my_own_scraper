@@ -149,14 +149,14 @@ def scrape_sgx(keywords: list[str]) -> None:
 
                 if check_run_done(news_info):
                     last_page = True
-                    break
-
                 if news_info.relevant_keywords != [""]:
                     write_info_to_csv(news_info)
                 count += 1
-
-            logger.info(f"Not at end of relevant announcements for SGX, going to next page.")
-            page_num += 1
+                if last_page:
+                    break
+            if not last_page:
+                logger.info(f"Not at end of relevant announcements for SGX, going to next page.")
+                page_num += 1
         logger.info(f"Done scraping SGX, scraped total of {count} announcements")
     finally:
         driver.quit()
@@ -202,6 +202,8 @@ def scrape_bursa_my(keywords: list[str]) -> None:
 
                 if news_info.relevant_keywords != [""]:
                     write_info_to_csv(news_info)
+                if last_page:
+                    break
                 count += 1
             if not last_page:
                 logger.info(f"Not at end of relevant announcements for Malaysia, going to next page.")
@@ -266,6 +268,10 @@ def scrape_szse(keywords: list[str]) -> None:
                 last_page = True
                 break
             else:
+                logger.info(
+                    f"Not at end of relevant announcements for SZSE after {count} docs scraped, going to next page."
+                )
+                page_num += 1
                 paginator_buttons[page_num].click()
                 sleep(1)
     finally:
