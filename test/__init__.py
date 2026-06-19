@@ -27,11 +27,11 @@ makedirs(f"{LOGS_FOLDER}", exist_ok=True)
 logging.basicConfig(
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler(log_file),
+        logging.FileHandler(filename=log_file, encoding='utf-8'),
     ],
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="[%(asctime)s] - %(name)s - %(levelname)s - %(message)s",
-    datefmt='%m/%d/%Y %I:%M:%S %p'
+    datefmt='%m/%d/%Y %I:%M:%S %p',
 )
 
 def run_scrape_job(
@@ -80,7 +80,7 @@ def main():
 
     # Parse keywords, remove any duplicates.
     # This is bad. Please fix it.
-    with open(f"temp/keywords-1.csv", "r") as f:
+    with open(f"temp/keywords-1.csv", "r", encoding='utf-8') as f:
         keywords: list[str] = f.read().splitlines()
     keywords = [word.upper() for word in keywords]
     keywords = list(set(keywords))
@@ -89,7 +89,7 @@ def main():
     # Loop through scraping functions and run, logging successes vs failures
     for a in dir(scrapers):
         item = getattr(scrapers, a)
-        if callable(item) and a == "scrape_szse":
+        if callable(item) and a == "scrape_sse":
             logging.info(f"Running {a.title()}!")
             start_time: datetime = datetime.now()
             run_scrape_job(
