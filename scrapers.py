@@ -105,7 +105,7 @@ def scrape_sgx(keywords: list[str]) -> None:
             logger.info(f"Starting scrape for {scrape_link}")
             driver.get(scrape_link)
             WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "sgx-content-table-scroll-container"))
+                EC.presence_of_element_located((By.TAG_NAME, "tr"))
             )
             logger.info(f"Retrieving announcements for {scrape_link}")
             announcements: list[WebElement] = driver.find_element(
