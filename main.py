@@ -25,9 +25,6 @@ from schedule import every, run_pending
 
 """
 This should be the main thing that orchestrates all the scrapers and various other tasks.
-Functionality:
-- Concurrently run scrape jobs -- for now we can single thread it and pretend this isn't a godawful way to do smth.
-- Log success/failures of scrape jobs
 """
 
 log_file: str = f"{LOGS_FOLDER}/scraper.log"
@@ -46,30 +43,46 @@ def run_scrape_job(
         job: Callable,
         job_name: str,
         start_time: datetime,
-        keywords: list[str]
+        keywords: list[str],
+        mail_settings: dict[str, str | list]
 ) -> None:
-    try:
-        job(keywords)
-        end_time: datetime = datetime.now()
-        scrape_time: timedelta = end_time - start_time
-        logging.info(f"{job_name} scrape completed! Took {scrape_time.total_seconds()} seconds")
-        write_run_to_csv(
-            job_name=job_name,
-            start_time=start_time,
-            end_time=end_time,
-            duration=scrape_time,
-        )
-    except WebDriverException as exception:
-        logging.error(exception)
-        logging.error(traceback.format_exception(exception))
-        logging.error(
-            f"WebDriver error during scrape job {job_name}.\n This likely means the page format"
-            f" has changed and code changes are required"
-        )
-        write_run_error_to_csv(
-            job_name=job_name,
-            start_time=start_time,
-            error_message=f"{exception}\n{traceback.format_exception(exception)}",
+    tries: int = 0
+    exc: Exception = Exception()
+    while tries <= 5:
+        try:
+            tries += 1
+            job(keywords)
+            end_time: datetime = datetime.now()
+            scrape_time: timedelta = end_time - start_time
+            logging.info(f"{job_name} scrape completed! Took {scrape_time.total_seconds()} seconds")
+            write_run_to_csv(
+                job_name=job_name,
+                start_time=start_time,
+                end_time=end_time,
+                duration=scrape_time,
+            )
+            return
+        except WebDriverException as exception:
+            logging.error(exception)
+            logging.error(traceback.format_exception(exception))
+            logging.error(
+                f"WebDriver error during scrape job {job_name}.\n This likely means the page format"
+                f" has changed and code changes are required"
+            )
+            write_run_error_to_csv(
+                job_name=job_name,
+                start_time=start_time,
+                error_message=f"{exception}\n{traceback.format_exception(exception)}",
+            )
+            exc = exception
+    else:
+        logging.error(f"{job_name} scrape attempted {tries} times, ending attempts. Emailing admin.")
+        email_client.send_email(
+            subject=f"Repeated failure of {job_name}",
+            body=f"{traceback.format_exception(exc)}",
+            sender=mail_settings["sender"],
+            recipients=mail_settings["admin"],
+            password=mail_settings["password"],
         )
 
 def main():
@@ -104,7 +117,8 @@ def main():
                 job=item,
                 job_name=a.title(),
                 start_time=start_time,
-                keywords=keywords
+                keywords=keywords,
+                mail_settings=email_settings
             )
 
     # Delete temp directory post-scrape
