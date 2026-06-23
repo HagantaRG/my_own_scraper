@@ -16,7 +16,6 @@ from utils.scraper_utils import write_info_to_csv, check_run_done
 logger = logging.getLogger(__name__)
 
 # TODO: Standardise  variable names.
-# TODO: Please tidy these up. Please. PLEASE.
 def scrape_hkx(keywords: list[str]) -> None:
     count = 0
     scrape_link: str = "https://www1.hkexnews.hk/listedco/listconews/index/lci.html?lang=en"
@@ -90,8 +89,6 @@ def scrape_hkx(keywords: list[str]) -> None:
                 if news_info.relevant_keywords != [""]:
                     write_info_to_csv(news_info)
 
-
-
                 count += 1
             logger.info(f"Done scraping HKX, scraped total of {count} announcements")
     finally:
@@ -107,10 +104,9 @@ def scrape_sgx(keywords: list[str]) -> None:
             scrape_link: str = f"https://www.sgx.com/securities/company-announcements?page={page_num}&pagesize=200"
             logger.info(f"Starting scrape for {scrape_link}")
             driver.get(scrape_link)
-            WebDriverWait(driver, 5).until(
+            WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.CLASS_NAME, "sgx-content-table-scroll-container"))
             )
-            sleep(5)
             logger.info(f"Retrieving announcements for {scrape_link}")
             announcements: list[WebElement] = driver.find_element(
                 By.CLASS_NAME,
@@ -155,7 +151,9 @@ def scrape_sgx(keywords: list[str]) -> None:
                 if last_page:
                     break
             if not last_page:
-                logger.info(f"Not at end of relevant announcements for SGX, going to next page.")
+                logger.info(
+                     f"Not at end of relevant announcements for SGX after {count} docs scraped, going to next page."
+                )
                 page_num += 1
         logger.info(f"Done scraping SGX, scraped total of {count} announcements")
     finally:
