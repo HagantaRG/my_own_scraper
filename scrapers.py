@@ -202,7 +202,9 @@ def scrape_bursa_my(keywords: list[str]) -> None:
                     break
                 count += 1
             if not last_page:
-                logger.info(f"Not at end of relevant announcements for Malaysia, going to next page.")
+                logger.info(
+                    f"Not at end of relevant announcements for Malaysia after {count} docs scraped, going to next page."
+                )
         logger.info(f"Done scraping Malaysian exchange, scraped total of {count} announcements")
     finally:
         driver.quit()
