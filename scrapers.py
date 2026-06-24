@@ -37,7 +37,7 @@ def scrape_hkx(keywords: list[str]) -> None:
     except TimeoutException:
         pass
     more_button: WebElement = driver.find_element(By.CSS_SELECTOR, ".component-loadmore__link.component-loadmore__icon")
-    WebDriverWait(driver, 2).until(
+    WebDriverWait(driver, 10).until(
         EC.element_to_be_clickable(more_button)
     )
     more_button.click()
@@ -45,16 +45,10 @@ def scrape_hkx(keywords: list[str]) -> None:
         while not last_page:
             logger.info(f"Waiting for element presence in {scrape_link}")
             WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "table-scroller"))
-            )
-            sleep(5)
-            table_scroller: WebElement = driver.find_element(By.CLASS_NAME, "table-scroller")
-            announcements_table_body: WebElement = table_scroller.find_element(
-                By.TAG_NAME,
-                "tbody"
+                EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr"))
             )
             logger.info(f"Retrieving announcements for {scrape_link}")
-            announcements: list[WebElement] = announcements_table_body.find_elements(By.TAG_NAME, "tr")
+            announcements: list[WebElement] = driver.find_elements(By.CSS_SELECTOR, "tbody > tr")
             logger.info(f"Found {len(announcements)} announcements, parsing...")
             for announcement in announcements:
                 # Get link for announcement content
