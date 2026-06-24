@@ -15,7 +15,7 @@ from utils.scraper_utils import write_info_to_csv, check_run_done
 
 logger = logging.getLogger(__name__)
 
-# TODO: Standardise  variable names.
+# TODO: Fix this one up so that it isn't so hideous.
 def scrape_hkx(keywords: list[str]) -> None:
     count = 0
     scrape_link: str = "https://www1.hkexnews.hk/listedco/listconews/index/lci.html?lang=en"
@@ -105,22 +105,11 @@ def scrape_sgx(keywords: list[str]) -> None:
             logger.info(f"Starting scrape for {scrape_link}")
             driver.get(scrape_link)
             WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.TAG_NAME, "tr"))
+                EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr"))
             )
             logger.info(f"Retrieving announcements for {scrape_link}")
-            announcements: list[WebElement] = driver.find_element(
-                By.CLASS_NAME,
-                "sgx-content-table-scroll-container"
-            ).find_element(
-                By.TAG_NAME,
-                "table"
-            ).find_element(
-                By.TAG_NAME,
-                "tbody"
-            ).find_elements(
-                By.TAG_NAME,
-                "tr"
-            )
+            announcements: list[WebElement] = driver.find_elements(By.CSS_SELECTOR, "tbody > tr")
+
             logger.info(f"Found {len(announcements)} announcements, parsing...")
             for announcement in announcements:
                 announcement_data: list[WebElement] = announcement.find_elements(By.TAG_NAME, "td")
