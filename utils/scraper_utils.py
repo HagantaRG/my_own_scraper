@@ -11,13 +11,6 @@ logger = logging.getLogger(__name__)
 news_data_headers: list[str] = ["link", "title", "date", "keywords", "retrieved_at"]
 run_data_headers: list[str] = ["job_name", "start_time", "end_time", "duration", "success", "error_message"]
 
-def translate_months(date_str: str) -> str:
-    for ind_month in months_translator.keys():
-        if ind_month in date_str:
-            eng_date: str = date_str.replace(ind_month, months_translator[ind_month])
-            return eng_date
-    raise Exception("No Indonesian months found in date str")
-
 def check_link_parsed_csv(news: NewsInformation) -> bool:
     file_exists: bool = path.isfile(f"{DATA_FOLDER}/news_data.csv")
     if not file_exists:
