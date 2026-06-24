@@ -220,15 +220,10 @@ def scrape_szse(keywords: list[str]) -> None:
     try:
         while not last_page:
             logger.info(f"SZSE page {page_num} scraping...")
-            WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "disclosure-tbody"))
+            WebDriverWait(driver, 30).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".disclosure-tbody > tr"))
             )
-
-            announcements: list[WebElement] = driver.find_element(
-                By.CLASS_NAME, "disclosure-tbody"
-            ).find_elements(
-                By.TAG_NAME, "tr"
-            )
+            announcements: list[WebElement] = driver.find_elements(By.CSS_SELECTOR, ".disclosure-tbody > tr")
 
             for announcement in announcements:
                 announcement_details: list[WebElement] = announcement.find_elements(By.TAG_NAME, "td")
@@ -256,10 +251,11 @@ def scrape_szse(keywords: list[str]) -> None:
                     )
                     if news_info.relevant_keywords != [""]:
                         write_info_to_csv(news_info)
+                    logger.debug(f"{announcement_stock_code} {announcement_title} {announcement_link}")
 
             paginator: WebElement = driver.find_element(By.ID, "paginator")
-            paginator_buttons: list[WebElement] = paginator.find_elements(By.TAG_NAME, "a")
-            if "last" in paginator_buttons[page_num-1].get_attribute("class") :
+            this_page: WebElement = paginator.find_element(By.CSS_SELECTOR, f"a[data-pi=\"{page_num-1}\"]")
+            if "last" in this_page.get_attribute("class"):
                 logger.info(f"Last page of SZSE reached. Ending.")
                 break
             else:
@@ -267,8 +263,10 @@ def scrape_szse(keywords: list[str]) -> None:
                     f"Not at end of relevant announcements for SZSE after {count} docs scraped, going to next page."
                 )
                 page_num += 1
-                paginator_buttons[page_num].click()
-                sleep(1)
+                paginator.find_element(By.CSS_SELECTOR, ".next > a").click()
+                WebDriverWait(driver, 30).until(
+                    EC.staleness_of(announcements[1])
+                )
     finally:
             driver.quit()
 
@@ -292,7 +290,7 @@ def scrape_sse(keywords: list[str]) -> None:
     )
     three_day_button: WebElement = driver.find_element(By.CLASS_NAME, "laydate-btns-latestThree")
     three_day_button.click()
-    WebDriverWait(driver, 10).until(
+    WebDriverWait(driver, 30).until(
         EC.staleness_of(table_entry)
     )
     count: int = 0
@@ -345,8 +343,8 @@ def scrape_sse(keywords: list[str]) -> None:
             )
             next_button: WebElement = driver.find_element(By.CLASS_NAME, "next").find_element(By.TAG_NAME, "a")
             next_button.click()
-            WebDriverWait(driver,10).until(
-                EC.staleness_of(announcements[1])
+            WebDriverWait(driver,30).until(
+                EC.staleness_of(announcements[0])
             )
         else:
             logger.info(f"Last page of SSE reached. Ending.")
