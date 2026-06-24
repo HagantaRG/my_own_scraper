@@ -48,7 +48,7 @@ def run_scrape_job(
 ) -> None:
     tries: int = 0
     exc: Exception = Exception()
-    while tries <= 5:
+    while tries < 5:
         try:
             tries += 1
             job(keywords)
@@ -61,7 +61,7 @@ def run_scrape_job(
                 end_time=end_time,
                 duration=scrape_time,
             )
-            return
+            return None
         except WebDriverException as exception:
             logging.error(exception)
             logging.error(traceback.format_exception(exception))
@@ -85,7 +85,9 @@ def run_scrape_job(
             password=mail_settings["password"],
         )
 
-def main():
+def main(
+        scraper_to_test: list[str] = ...
+):
     google_client: GmailClient = GmailClient(f"{SETTINGS_FOLDER}/service_credentials.json")
 
     # Load settings, in case any changes since last run
@@ -111,6 +113,8 @@ def main():
     for a in dir(scrapers):
         item = getattr(scrapers, a)
         if callable(item) and a.startswith("scrape_"):
+            if scraper_to_test is not ... and a.title() not in scraper_to_test:
+                continue
             logging.info(f"Running {a.title()}!")
             start_time: datetime = datetime.now()
             run_scrape_job(
