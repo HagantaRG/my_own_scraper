@@ -15,7 +15,7 @@ from utils.scraper_utils import write_info_to_csv, check_run_done
 
 logger = logging.getLogger(__name__)
 
-# TODO: Fix this one up so that it isn't so hideous.
+
 def scrape_hkx(keywords: list[str]) -> None:
     count = 0
     scrape_link: str = "https://www1.hkexnews.hk/listedco/listconews/index/lci.html?lang=en"
@@ -287,6 +287,8 @@ def scrape_sse(keywords: list[str]) -> None:
         announcements: list[WebElement] = table_body.find_elements(
             By.TAG_NAME,"tr"
         )
+        announcement_stock_name: str = "N/A"
+        announcement_stock_code: str = "N/A"
         for announcement in announcements:
             count += 1
             ann_class: str = announcement.get_attribute("class")
@@ -297,17 +299,14 @@ def scrape_sse(keywords: list[str]) -> None:
             announcement_date: datetime = datetime.strptime(
                 date_text, "%Y-%m-%d"
             )
-            announcement_stock_name: str = "N/A"
-            announcement_stock_code: str = "N/A"
-            if "multiple_bag" in ann_class and "first_bag" not in ann_class:
+            if ann_class == "multiple_bag" or "last_multiple" in ann_class:
                 pass
             else:
                 announcement_stock_code: str = announcement_details[0].find_element(By.TAG_NAME, "a").text
                 announcement_stock_name: str = announcement_details[1].find_element(By.TAG_NAME, "a").text
             announcement_title: str = announcement_details[2].find_element(By.TAG_NAME, "a").text
             search_str: str = f"{announcement_title}{announcement_stock_code}{announcement_stock_name}"
-            relevant_keywords: list[str] = [keyword for keyword in keywords if
-                                            keyword in f"{search_str}".upper()]
+            relevant_keywords: list[str] = [keyword for keyword in keywords if keyword in f"{search_str}".upper()]
             news_info: NewsInformation = NewsInformation(
                 news_link=announcement_link,
                 news_date=announcement_date,
@@ -316,6 +315,9 @@ def scrape_sse(keywords: list[str]) -> None:
                 relevant_keywords=relevant_keywords if len(relevant_keywords) > 0 else [""]
             )
             logger.debug(f"{announcement_title}")
+            if "last_multiple" in ann_class:
+                announcement_stock_name: str = "N/A"
+                announcement_stock_code: str = "N/A"
             if check_run_done(news_info):
                 last_page = True
             if news_info.relevant_keywords != [""]:
