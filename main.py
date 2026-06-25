@@ -51,6 +51,7 @@ def run_scrape_job(
     while tries < 5:
         try:
             tries += 1
+            logging.info(f"Running {job_name}, attempt {tries}")
             job(keywords)
             end_time: datetime = datetime.now()
             scrape_time: timedelta = end_time - start_time
@@ -84,6 +85,7 @@ def run_scrape_job(
             recipients=mail_settings["admin"],
             password=mail_settings["password"],
         )
+        return None
 
 def main(
         scraper_to_test: list[str] = ...
@@ -115,7 +117,6 @@ def main(
         if callable(item) and a.startswith("scrape_"):
             if scraper_to_test is not ... and a.title() not in scraper_to_test:
                 continue
-            logging.info(f"Running {a.title()}!")
             start_time: datetime = datetime.now()
             run_scrape_job(
                 job=item,
