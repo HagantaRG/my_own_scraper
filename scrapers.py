@@ -297,6 +297,8 @@ def scrape_sse(keywords: list[str]) -> None:
             announcement_date: datetime = datetime.strptime(
                 date_text, "%Y-%m-%d"
             )
+            announcement_stock_name: str = "N/A"
+            announcement_stock_code: str = "N/A"
             if "multiple_bag" in ann_class and "first_bag" not in ann_class:
                 pass
             else:
