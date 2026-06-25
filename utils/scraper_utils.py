@@ -34,15 +34,18 @@ def write_info_to_csv(info: NewsInformation) -> None:
                 keyword_string += f"{keyword},"
             keyword_string+=f"{info.relevant_keywords[-1]}"
 
-        writer.writerow(
-            {
-                "link": info.news_link,
-                "title": info.news_title,
-                "date": info.news_date,
-                "keywords": keyword_string,
-                "retrieved_at": info.retrieved_at,
-            }
-        )
+        if not check_link_parsed_csv(info):
+            writer.writerow(
+                {
+                    "link": info.news_link,
+                    "title": info.news_title,
+                    "date": info.news_date,
+                    "keywords": keyword_string,
+                    "retrieved_at": info.retrieved_at,
+                }
+            )
+        else:
+            logger.info(f"Link {info.news_link} already in CSV, not writing.")
 
 def write_run_to_csv(
         job_name: str,
