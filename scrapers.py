@@ -3,7 +3,7 @@ from datetime import datetime
 from json import loads
 from time import sleep
 
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
@@ -267,10 +267,17 @@ def scrape_sse(keywords: list[str]) -> None:
     table_entry: WebElement = driver.find_element(By.TAG_NAME, "tr")
     logger.info(f"Clicking button to get last three days of info...")
     date_range_button: WebElement = driver.find_element(By.CLASS_NAME, "range_date")
-    date_range_button.click()
-    WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CLASS_NAME, "laydate-btns-latestThree"))
-    )
+    click_try: int = 0
+    while click_try < 3:
+        try:
+            click_try += 1
+            logger.debug(f"Clicking annoying button attempt {click_try}")
+            date_range_button.click()
+            WebDriverWait(driver, 1).until(
+                EC.presence_of_element_located((By.CLASS_NAME, "laydate-btns-latestThree"))
+            )
+        except WebDriverException:
+            pass
     three_day_button: WebElement = driver.find_element(By.CLASS_NAME, "laydate-btns-latestThree")
     three_day_button.click()
     WebDriverWait(driver, 30).until(
