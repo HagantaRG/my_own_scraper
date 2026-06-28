@@ -44,8 +44,8 @@ def scrape_hkx(keywords: list[str]) -> None:
     try:
         while not last_page:
             logger.info(f"Waiting for element presence in {scrape_link}")
-            WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr"))
+            WebDriverWait(driver, 60).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr > td"))
             )
             logger.info(f"Retrieving announcements for {scrape_link}")
             announcements: list[WebElement] = driver.find_elements(By.CSS_SELECTOR, "tbody > tr")
@@ -98,8 +98,8 @@ def scrape_sgx(keywords: list[str]) -> None:
             scrape_link: str = f"https://www.sgx.com/securities/company-announcements?page={page_num}&pagesize=200"
             logger.info(f"Starting scrape for {scrape_link}")
             driver.get(scrape_link)
-            WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr"))
+            WebDriverWait(driver, 60).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr > td"))
             )
             logger.info(f"Retrieving announcements for {scrape_link}")
             announcements: list[WebElement] = driver.find_elements(By.CSS_SELECTOR, "tbody > tr")
@@ -204,7 +204,7 @@ def scrape_szse(keywords: list[str]) -> None:
         while not last_page:
             logger.info(f"SZSE page {page_num} scraping...")
             WebDriverWait(driver, 30).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, ".disclosure-tbody > tr"))
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".disclosure-tbody > tr > td"))
             )
             announcements: list[WebElement] = driver.find_elements(By.CSS_SELECTOR, ".disclosure-tbody > tr")
 
@@ -262,9 +262,9 @@ def scrape_sse(keywords: list[str]) -> None:
     driver.get(scrape_link)
     logger.info(f"Waiting for page to fully load...")
     WebDriverWait(driver, 60).until(
-        EC.presence_of_element_located((By.TAG_NAME, "tr"))
+        EC.presence_of_element_located((By.TAG_NAME, "td"))
     )
-    table_entry: WebElement = driver.find_element(By.TAG_NAME, "tr")
+    table_entry: WebElement = driver.find_element(By.TAG_NAME, "td")
     logger.info(f"Clicking button to get last three days of info...")
     date_range_button: WebElement = driver.find_element(By.CLASS_NAME, "range_date")
     click_try: int = 0
@@ -287,11 +287,10 @@ def scrape_sse(keywords: list[str]) -> None:
     while not last_page:
         page_num += 1
         logger.info(f"SSE page {page_num} scraping...")
-        WebDriverWait(driver, 5).until(
-            EC.presence_of_element_located((By.TAG_NAME, "tbody"))
+        WebDriverWait(driver, 60).until(
+            EC.presence_of_element_located((By.TAG_NAME, "td"))
         )
-        table_body: WebElement = driver.find_element(By.TAG_NAME, "tbody")
-        announcements: list[WebElement] = table_body.find_elements(
+        announcements: list[WebElement] = driver.find_elements(
             By.TAG_NAME,"tr"
         )
         announcement_stock_name: str = "N/A"
