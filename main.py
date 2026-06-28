@@ -76,6 +76,15 @@ def run_scrape_job(
                 error_message=f"{exception}\n{traceback.format_exception(exception)}",
             )
             exc = exception
+        except Exception as exception:
+            # N.B. this generic retry is here because if there is an issue with the HTML of the page,
+            # e.g. if the page that is loaded has 1 less element than normal somewhere, it would cause a generic error.
+            # and I have no real way of differentiating it.
+            logging.error(exception)
+            logging.error(traceback.format_exception(exception))
+            logging.error(
+                f"Generic error encountered during scrape job, retrying."
+            )
     else:
         logging.error(f"{job_name} scrape attempted {tries} times, ending attempts. Emailing admin.")
         email_client.send_email(
