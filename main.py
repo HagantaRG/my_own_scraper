@@ -89,7 +89,7 @@ def run_scrape_job(
         logging.error(f"{job_name} scrape attempted {tries} times, ending attempts. Emailing admin.")
         email_client.send_email(
             subject=f"Repeated failure of {job_name}",
-            body=f"{traceback.format_exception(exc)}",
+            body=f"{traceback.format_exception(exc)} \n {exc}",
             sender=mail_settings["sender"],
             recipients=mail_settings["admin"],
             password=mail_settings["password"],
@@ -103,6 +103,7 @@ def main(
 
     # Load settings, in case any changes since last run
     settings_toml: toml_reader.Toml = Toml(Path(f"{SETTINGS_FOLDER}/settings.toml"))
+    logging.info(f"Loaded settings from {SETTINGS_FOLDER}/settings.toml")
     email_settings: dict[str, str | list] = settings_toml.load("email-settings")
     keyword_settings: dict[str, str | list] = settings_toml.load("keyword-document")
     sheet_id: str = keyword_settings["sheet-id"]
