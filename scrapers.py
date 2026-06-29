@@ -262,9 +262,9 @@ def scrape_sse(keywords: list[str]) -> None:
     driver.get(scrape_link)
     logger.info(f"Waiting for page to fully load...")
     WebDriverWait(driver, 60).until(
-        EC.presence_of_element_located((By.TAG_NAME, "td"))
+        EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr > td"))
     )
-    table_entry: WebElement = driver.find_element(By.TAG_NAME, "td")
+    table_entry: WebElement = driver.find_element(By.CSS_SELECTOR, "tbody > tr > td")
     logger.info(f"Clicking button to get last three days of info...")
     date_range_button: WebElement = driver.find_element(By.CLASS_NAME, "range_date")
     click_try: int = 0
@@ -288,10 +288,10 @@ def scrape_sse(keywords: list[str]) -> None:
         page_num += 1
         logger.info(f"SSE page {page_num} scraping...")
         WebDriverWait(driver, 60).until(
-            EC.presence_of_element_located((By.TAG_NAME, "td"))
+            EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr > td"))
         )
         announcements: list[WebElement] = driver.find_elements(
-            By.TAG_NAME,"tr"
+            By.CSS_SELECTOR,"tbody > tr"
         )
         announcement_stock_name: str = "N/A"
         announcement_stock_code: str = "N/A"
