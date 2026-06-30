@@ -204,10 +204,8 @@ try:
             case "standard-schedule":
                 schedule.clear()
                 every().day.at("09:00").do(
-                    run_threaded(
-                        scrape_orchestrator,
-                        test_mode=False,
-                    )
+                    run_threaded,
+                    scrape_orchestrator
                 )
                 run_pending()
                 sleep(1)
