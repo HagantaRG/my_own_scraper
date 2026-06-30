@@ -9,7 +9,9 @@ from time import sleep
 from smtplib import SMTPException
 import shutil
 from os import makedirs
+from threading import Thread
 
+import schedule
 # Third party libs
 from selenium.common.exceptions import WebDriverException
 
@@ -38,7 +40,7 @@ logging.basicConfig(
     format="[%(asctime)s] - %(name)s - %(levelname)s - %(message)s",
     datefmt='%m/%d/%Y %I:%M:%S %p',
 )
-
+threads: list[Thread]
 def run_scrape_job(
         job: Callable,
         job_name: str,
@@ -96,9 +98,10 @@ def run_scrape_job(
         )
         return None
 
-def main(
-        scraper_to_test: list[str] = ...
-):
+def scrape_orchestrator(
+        test_mode: bool = False,
+        target_site: str = ...
+) -> None:
     google_client: GmailClient = GmailClient(f"{SETTINGS_FOLDER}/service_credentials.json")
 
     # Load settings, in case any changes since last run
@@ -124,9 +127,17 @@ def main(
     # Loop through scraping functions and run, logging successes vs failures
     for a in dir(scrapers):
         item = getattr(scrapers, a)
-        if callable(item) and a.startswith("scrape_"):
-            if scraper_to_test is not ... and a.title() not in scraper_to_test:
-                continue
+        if callable(item) and a.startswith("scrape_") and target_site is ...:
+            start_time: datetime = datetime.now()
+            run_scrape_job(
+                job=item,
+                job_name=a.title(),
+                start_time=start_time,
+                keywords=keywords,
+                mail_settings=email_settings
+            )
+        elif target_site is not ... and target_site in a.title().lower():
+            logging.info(f"Running scrape for {target_site} website.")
             start_time: datetime = datetime.now()
             run_scrape_job(
                 job=item,
@@ -155,7 +166,7 @@ def main(
                 subject=subject,
                 body=body,
                 sender=email_settings["sender"],
-                recipients=email_settings["recipients"],
+                recipients=email_settings["recipients"] if not test_mode else email_settings["admin"],
                 password=email_settings["password"],
             )
             break
@@ -166,8 +177,59 @@ def main(
             continue
     if tries >= 5:
         logging.error(f"Error encountered in email sending. Emails have NOT been sent.")
+    if test_mode:
+        logging.info(f"Test run carried out without unhandled errors.")
+    return None
 
-main_schedule = every().day.at("09:00").do(main)
-while True:
-    run_pending()
-    sleep(1)
+
+def run_threaded(job_func: Callable, *args, **kwargs):
+    job_thread = Thread(target=job_func, daemon=True, args=args, kwargs=kwargs)
+    job_thread.start()
+try:
+    while True:
+        user_input: str = input(f"Awaiting user input for scraper. Please enter \"help\" to get a list of valid commands.\n")
+        match user_input:
+            case "help":
+                print(
+                    f"Available commands:\n"
+                    f"test-run: Carries out a one-off run of the *whole* scraper, emailing only the admins.\n"
+                    f"standard-schedule: Standard scheduled scraper, running at 9:00 AM local time every day.\n"
+                    f"single-scrape: Scrapes one of the supported websites. Available codes will be displayed on selection.\n"
+                )
+            case "test-run":
+                run_threaded(
+                    scrape_orchestrator,
+                    test_mode=True
+                )
+            case "standard-schedule":
+                schedule.clear()
+                every().day.at("09:00").do(
+                    run_threaded(
+                        scrape_orchestrator,
+                        test_mode=False,
+                    )
+                )
+                run_pending()
+                sleep(1)
+            case "single-scrape":
+                site_code: str = input(
+                    "bursa_my: The Malaysian stock exchange website.\n"
+                    "szse: The Shenzhen stock exchange website.\n"
+                    "sse: The Shanghai stock exchange website.\n"
+                    "sgx: The Singaporean stock exchange website.\n"
+                    "hkx: The Hong Kong stock exchange website.\n"
+                )
+                site_list: list[str] = ["bursa_my", "szse", "sgx", "hkx", "sse"]
+                if site_code not in site_list:
+                    print(f"Invalid site code.")
+                else:
+                    run_threaded(
+                        scrape_orchestrator,
+                        test_mode=True,
+                        target_site=site_code
+                    )
+            case _:
+                print("Invalid command.")
+
+except KeyboardInterrupt:
+    print("Program execution stopped.")
