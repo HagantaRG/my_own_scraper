@@ -203,11 +203,13 @@ try:
                 )
             case "standard-schedule":
                 schedule.clear()
+                logging.info("Cleared any existing jobs.")
                 every().day.at("09:00").do(
                     run_threaded,
                     scrape_orchestrator
                 )
                 run_pending()
+                logging.info("9AM scrapes scheduled.")
                 sleep(1)
             case "single-scrape":
                 site_code: str = input(
