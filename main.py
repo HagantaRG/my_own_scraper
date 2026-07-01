@@ -10,8 +10,8 @@ from smtplib import SMTPException
 import shutil
 from os import makedirs
 from threading import Thread
-
 import schedule
+
 # Third party libs
 from selenium.common.exceptions import WebDriverException
 
@@ -182,9 +182,14 @@ def scrape_orchestrator(
     return None
 
 
-def run_threaded(job_func: Callable, *args, **kwargs):
-    job_thread = Thread(target=job_func, daemon=True, args=args, kwargs=kwargs)
+def run_threaded(
+        job_func: Callable,
+        *args,
+        **kwargs
+):
+    job_thread = Thread(target=job_func, args=args, kwargs=kwargs, daemon=True)
     job_thread.start()
+
 try:
     while True:
         user_input: str = input(f"Awaiting user input for scraper. Please enter \"help\" to get a list of valid commands.\n")
@@ -194,7 +199,8 @@ try:
                     f"Available commands:\n"
                     f"test-run: Carries out a one-off run of the *whole* scraper, emailing only the admins.\n"
                     f"standard-schedule: Standard scheduled scraper, running at 9:00 AM local time every day.\n"
-                    f"single-scrape: Scrapes one of the supported websites. Available codes will be displayed on selection.\n"
+                    f"single-scrape: Runs the scraper once. Does not schedule anything.\n"
+                    f"single-site: Scrapes one of the supported websites. Available codes will be displayed on selection."
                 )
             case "test-run":
                 run_threaded(
@@ -204,7 +210,7 @@ try:
             case "standard-schedule":
                 schedule.clear()
                 logging.info("Cleared any existing jobs.")
-                every().day.at("09:00").do(
+                main_schedule = every().day.at("09:00").do(
                     run_threaded,
                     scrape_orchestrator
                 )
@@ -212,6 +218,10 @@ try:
                 logging.info("9AM scrapes scheduled.")
                 sleep(1)
             case "single-scrape":
+                run_threaded(
+                    scrape_orchestrator
+                )
+            case "single-site":
                 site_code: str = input(
                     "bursa_my: The Malaysian stock exchange website.\n"
                     "szse: The Shenzhen stock exchange website.\n"
@@ -230,6 +240,7 @@ try:
                     )
             case _:
                 print("Invalid command.")
+        sleep(2)
 
 except KeyboardInterrupt:
     print("Program execution stopped.")
