@@ -9,8 +9,7 @@ from time import sleep
 from smtplib import SMTPException
 import shutil
 from os import makedirs
-from threading import Thread
-import schedule
+from threading import Thread, Event
 
 # Third party libs
 from selenium.common.exceptions import WebDriverException
@@ -23,7 +22,7 @@ from utils.filepaths import LOGS_FOLDER, SETTINGS_FOLDER
 from utils.toml_reader import Toml
 from utils import email_utils, toml_reader
 from utils.scraper_utils import write_run_error_to_csv, write_run_to_csv
-from schedule import every, run_pending
+from schedule import every, run_pending, clear
 
 """
 This should be the main thing that orchestrates all the scrapers and various other tasks.
@@ -37,7 +36,7 @@ logging.basicConfig(
         logging.FileHandler(filename=log_file, encoding='utf-8'),
     ],
     level=logging.INFO,
-    format="[%(asctime)s] - %(name)s - %(levelname)s - %(message)s",
+    format="[%(asctime)s] - %(filename)s:%(lineno)s - %(funcName)10s() - %(levelname)s - %(message)s ",
     datefmt='%m/%d/%Y %I:%M:%S %p',
 )
 threads: list[Thread]
@@ -181,7 +180,6 @@ def scrape_orchestrator(
         logging.info(f"Test run carried out without unhandled errors.")
     return None
 
-
 def run_threaded(
         job_func: Callable,
         *args,
@@ -190,6 +188,31 @@ def run_threaded(
     job_thread = Thread(target=job_func, args=args, kwargs=kwargs, daemon=True)
     job_thread.start()
 
+def run_continuously(interval=1):
+    """Continuously run, while executing pending jobs at each
+    elapsed time interval.
+    @return cease_continuous_run: threading. Event which can
+    be set to cease continuous run. Please note that it is
+    *intended behavior that run_continuously() does not run
+    missed jobs*. For example, if you've registered a job that
+    should run every minute, and you set a continuous run
+    interval of one hour then your job won't be run 60 times
+    at each interval but only once.
+    """
+    stopper_event = Event()
+    class ScheduleThread(Thread):
+        @classmethod
+        def run(cls):
+            while not stopper_event.is_set():
+                run_pending()
+                sleep(interval)
+
+    background_scheduler = ScheduleThread(daemon=True)
+    background_scheduler.start()
+    logging.info("Background scheduler started.")
+    return stopper_event
+
+stop_event: Event = Event()
 try:
     while True:
         user_input: str = input(f"Awaiting user input for scraper. Please enter \"help\" to get a list of valid commands.\n")
@@ -208,15 +231,17 @@ try:
                     test_mode=True
                 )
             case "standard-schedule":
-                schedule.clear()
-                logging.info("Cleared any existing jobs.")
+                # The way this works is that there is one long-running thread that exists for the scheduler
+                # and *that* thread will spin up another daemon thread for the daily scrape jobs.
+                clear()
+                stop_event.set()
+                logging.info("Cleared any existing jobs, cleared previously existing schedulers.")
                 main_schedule = every().day.at("09:00").do(
                     run_threaded,
                     scrape_orchestrator
                 )
-                run_pending()
                 logging.info("9AM scrapes scheduled.")
-                sleep(1)
+                stop_event: Event = run_continuously()
             case "single-scrape":
                 run_threaded(
                     scrape_orchestrator
@@ -243,4 +268,7 @@ try:
         sleep(2)
 
 except KeyboardInterrupt:
-    print("Program execution stopped.")
+    stop_event.set()
+    print("Program execution stopped. Cleared schedulers.")
+
+
