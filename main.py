@@ -10,12 +10,13 @@ from smtplib import SMTPException
 import shutil
 from os import makedirs
 from threading import Thread, Event
+from csv import DictReader
 
 # Third party libs
 from selenium.common.exceptions import WebDriverException
 
 # Custom libs
-from gmail_client import GmailClient
+from gmail_client import GoogleClient
 import email_client
 import scrapers
 from utils.filepaths import LOGS_FOLDER, SETTINGS_FOLDER
@@ -25,7 +26,7 @@ from utils.scraper_utils import write_run_error_to_csv, write_run_to_csv
 from schedule import every, run_pending, clear
 
 """
-This should be the main thing that orchestrates all the scrapers and various other tasks.
+This should be the main thing that orchestrates all the scrapers and various other tasks. 
 """
 
 log_file: str = f"{LOGS_FOLDER}/scraper.log"
@@ -39,12 +40,12 @@ logging.basicConfig(
     format="[%(asctime)s] - %(filename)s:%(lineno)s - %(funcName)10s() - %(levelname)s - %(message)s ",
     datefmt='%m/%d/%Y %I:%M:%S %p',
 )
-threads: list[Thread]
+
 def run_scrape_job(
         job: Callable,
         job_name: str,
         start_time: datetime,
-        keywords: list[str],
+        sheet_dict: dict[str, list[str]],
         mail_settings: dict[str, str | list]
 ) -> None:
     tries: int = 0
@@ -53,7 +54,7 @@ def run_scrape_job(
         try:
             tries += 1
             logging.info(f"Running {job_name}, attempt {tries}")
-            job(keywords)
+            job(sheet_dict)
             end_time: datetime = datetime.now()
             scrape_time: timedelta = end_time - start_time
             logging.info(f"{job_name} scrape completed! Took {scrape_time.total_seconds()} seconds")
@@ -97,11 +98,36 @@ def run_scrape_job(
         )
         return None
 
+def retrieve_keywords_csv(
+        google_client: GoogleClient,
+        sheet_id: str
+) -> dict[str,list[str]]:
+    # This is also really ugly, please find a real home for it.
+    # This will need to be changed for each
+    # Retrieve keywords csv
+    logging.info("Retrieving keywords CSV.")
+    sheet_paths: list[Path] = google_client.get_spreadsheet_as_csv(sheet_id, "temp", "keywords")
+    logging.info("Retrieved CSV.")
+    sheet_dict: dict[str, list[str]] = {}
+    with open(sheet_paths[0], "r", encoding='utf-8') as csv_file:
+        csv_reader: DictReader = DictReader(csv_file, delimiter=",")
+        for field in csv_reader.fieldnames:
+            sheet_dict[field] = []
+        for row in csv_reader:
+            for field in csv_reader.fieldnames:
+                if row[field] == '':
+                    continue
+                else:
+                    sheet_dict[field].append(row[field])
+    logging.info(f"Keywords: {sheet_dict}")
+    return sheet_dict
+
+
 def scrape_orchestrator(
         test_mode: bool = False,
         target_site: str = ...
 ) -> None:
-    google_client: GmailClient = GmailClient(f"{SETTINGS_FOLDER}/service_credentials.json")
+    google_client: GoogleClient = GoogleClient(f"{SETTINGS_FOLDER}/service_credentials.json")
 
     # Load settings, in case any changes since last run
     settings_toml: toml_reader.Toml = Toml(Path(f"{SETTINGS_FOLDER}/settings.toml"))
@@ -109,19 +135,7 @@ def scrape_orchestrator(
     email_settings: dict[str, str | list] = settings_toml.load("email-settings")
     keyword_settings: dict[str, str | list] = settings_toml.load("keyword-document")
     sheet_id: str = keyword_settings["sheet-id"]
-
-    # Retrieve keywords csv
-    logging.info("Retrieving keywords CSV.")
-    google_client.get_spreadsheet_as_csv(sheet_id, "temp", "keywords")
-    logging.info("Retrieved CSV.")
-
-    # Parse keywords, remove any duplicates.
-    # This is bad. Please fix it.
-    with open(f"temp/keywords-1.csv", "r", encoding='utf-8') as f:
-        keywords: list[str] = f.read().splitlines()
-    keywords = [word.upper() for word in keywords]
-    keywords = list(set(keywords))
-    logging.info(f"Keywords: {keywords}")
+    sheet_dict: dict[str, list[str]] = retrieve_keywords_csv(google_client, sheet_id)
 
     # Loop through scraping functions and run, logging successes vs failures
     for a in dir(scrapers):
@@ -132,7 +146,7 @@ def scrape_orchestrator(
                 job=item,
                 job_name=a.title(),
                 start_time=start_time,
-                keywords=keywords,
+                sheet_dict=sheet_dict,
                 mail_settings=email_settings
             )
         elif target_site is not ... and target_site in a.title().lower():
@@ -142,7 +156,7 @@ def scrape_orchestrator(
                 job=item,
                 job_name=a.title(),
                 start_time=start_time,
-                keywords=keywords,
+                sheet_dict=sheet_dict,
                 mail_settings=email_settings
             )
 

@@ -6,7 +6,7 @@ from google.oauth2 import service_account
 import googleapiclient.discovery
 
 
-class GmailClient:
+class GoogleClient:
 
   credential_filepath: str
 
@@ -22,8 +22,9 @@ class GmailClient:
           spreadsheet_id: str,
           target_folder: Path|str,
           sheet_name: str
-  ):
+  ) -> list[Path]:
     scope = ['https://www.googleapis.com/auth/drive.readonly']
+    path_list: list[Path] = []
     credentials = service_account.Credentials.from_service_account_file(
       self.credential_filepath, scopes=scope)
     service = googleapiclient.discovery.build(
@@ -51,4 +52,5 @@ class GmailClient:
         os.mkdir(target_folder)
       with open(filepath, 'wb') as csvFile:
         csvFile.write(response.content)
-
+        path_list.append(filepath)
+    return path_list

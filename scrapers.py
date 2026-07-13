@@ -1,7 +1,6 @@
 import logging
 from datetime import datetime
 from json import loads
-from time import sleep
 
 from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
@@ -16,7 +15,8 @@ from utils.scraper_utils import write_info_to_csv, check_run_done
 logger = logging.getLogger(__name__)
 
 
-def scrape_hkx(keywords: list[str]) -> None:
+def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
+    keywords: list[str] = sheet_dict["keywords"]
     count = 0
     scrape_link: str = "https://www1.hkexnews.hk/listedco/listconews/index/lci.html?lang=en"
     driver = Driver(uc=True, headless=True)
@@ -88,7 +88,8 @@ def scrape_hkx(keywords: list[str]) -> None:
     finally:
         driver.quit()
 
-def scrape_sgx(keywords: list[str]) -> None:
+def scrape_sgx(sheet_dict: dict[str, list[str]]) -> None:
+    keywords: list[str] = sheet_dict["keywords"]
     page_num: int = 1
     last_page: bool = False
     driver = Driver(uc=True, headless=True)
@@ -142,8 +143,9 @@ def scrape_sgx(keywords: list[str]) -> None:
     finally:
         driver.quit()
 
-def scrape_bursa_my(keywords: list[str]) -> None:
+def scrape_bursa_my(sheet_dict: dict[str, list[str]]) -> None:
     ## Use their API, you can probably access it.
+    keywords: list[str] = sheet_dict["keywords"]
     count = 0
     current_time: int = int(datetime.now().timestamp())
     page_count: int = 0
@@ -192,7 +194,9 @@ def scrape_bursa_my(keywords: list[str]) -> None:
     finally:
         driver.quit()
 
-def scrape_szse(keywords: list[str]) -> None:
+def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
+    keywords: list[str] = sheet_dict["keywords"]
+    stock_code: list[str] = sheet_dict["stock_code_cn"]
     page_num: int = 1
     last_page: bool = False
     driver = Driver(uc=True, headless=True)
@@ -253,7 +257,9 @@ def scrape_szse(keywords: list[str]) -> None:
     finally:
             driver.quit()
 
-def scrape_sse(keywords: list[str]) -> None:
+def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
+    keywords: list[str] = sheet_dict["keywords"]
+    stock_code: list[str] = sheet_dict["stock_code_cn"]
     page_num: int = 0
     last_page: bool = False
     driver = Driver(uc=True, headless=True)
