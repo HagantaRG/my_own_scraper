@@ -230,6 +230,7 @@ stop_event: Event = Event()
 try:
     while True:
         user_input: str = input(f"Awaiting user input for scraper. Please enter \"help\" to get a list of valid commands.\n")
+        user_input = user_input.strip()
         match user_input:
             case "help":
                 print(
