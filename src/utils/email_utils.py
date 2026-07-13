@@ -3,7 +3,7 @@ from datetime import datetime
 
 from dateutil import parser
 
-from src.utils.filepaths import DATA_FOLDER
+from utils.filepaths import DATA_FOLDER
 
 csv_headers: list[str] = ["link","title","date","keywords","retrieved_at"]
 def construct_email() -> str:

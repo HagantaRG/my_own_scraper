@@ -1,0 +1,6 @@
+python-dateutil~=2.9.0.post0
+schedule~=1.2.2
+selenium~=4.43.0
+seleniumbase~=4.48.4
+requests~=2.33.1
+google-api-python-client~=2.198.0

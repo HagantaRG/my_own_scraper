@@ -105,7 +105,6 @@ def retrieve_keywords_csv(
 ) -> dict[str,list[str]]:
     # This is also really ugly, please find a real home for it.
     # This will need to be changed for each
-    # Retrieve keywords csv
     logging.info("Retrieving keywords CSV.")
     sheet_paths: list[Path] = google_client.get_spreadsheet_as_csv(sheet_id, "temp", "keywords")
     logging.info("Retrieved CSV.")
@@ -237,6 +236,7 @@ try:
                     "sgx: The Singaporean stock exchange website.\n"
                     "hkx: The Hong Kong stock exchange website.\n"
                 )
+                site_code = site_code.strip()
                 site_list: list[str] = ["bursa_my", "szse", "sgx", "hkx", "sse"]
                 if site_code not in site_list:
                     print(f"Invalid site code.")
