@@ -9,11 +9,12 @@ from time import sleep
 from smtplib import SMTPException
 import shutil
 from os import makedirs
-from threading import Thread, Event
+from threading import Event
 from csv import DictReader
 
 # Third party libs
 from selenium.common.exceptions import WebDriverException
+from schedule import every, clear
 
 # Custom libs
 from gmail_client import GoogleClient
@@ -23,7 +24,7 @@ from utils.filepaths import LOGS_FOLDER, SETTINGS_FOLDER
 from utils.toml_reader import Toml
 from utils import email_utils, toml_reader
 from utils.scraper_utils import write_run_error_to_csv, write_run_to_csv
-from schedule import every, run_pending, clear
+from utils.thread_utils import run_threaded, run_continuously
 
 """
 This should be the main thing that orchestrates all the scrapers and various other tasks. 
@@ -122,7 +123,6 @@ def retrieve_keywords_csv(
     logging.info(f"Keywords: {sheet_dict}")
     return sheet_dict
 
-
 def scrape_orchestrator(
         test_mode: bool = False,
         target_site: str = ...
@@ -194,38 +194,6 @@ def scrape_orchestrator(
         logging.info(f"Test run carried out without unhandled errors.")
     return None
 
-def run_threaded(
-        job_func: Callable,
-        *args,
-        **kwargs
-):
-    job_thread = Thread(target=job_func, args=args, kwargs=kwargs, daemon=True)
-    job_thread.start()
-
-def run_continuously(interval=1):
-    """Continuously run, while executing pending jobs at each
-    elapsed time interval.
-    @return cease_continuous_run: threading. Event which can
-    be set to cease continuous run. Please note that it is
-    *intended behavior that run_continuously() does not run
-    missed jobs*. For example, if you've registered a job that
-    should run every minute, and you set a continuous run
-    interval of one hour then your job won't be run 60 times
-    at each interval but only once.
-    """
-    stopper_event = Event()
-    class ScheduleThread(Thread):
-        @classmethod
-        def run(cls):
-            while not stopper_event.is_set():
-                run_pending()
-                sleep(interval)
-
-    background_scheduler = ScheduleThread(daemon=True)
-    background_scheduler.start()
-    logging.info("Background scheduler started.")
-    return stopper_event
-
 stop_event: Event = Event()
 try:
     while True:
@@ -280,7 +248,7 @@ try:
                     )
             case _:
                 print("Invalid command.")
-        sleep(2)
+        sleep(0.5)
 
 except KeyboardInterrupt:
     stop_event.set()
