@@ -118,7 +118,7 @@ def retrieve_keywords_csv(
                 if row[field] == '':
                     continue
                 else:
-                    sheet_dict[field].append(row[field])
+                    sheet_dict[field].append(str(row[field]).upper())
     logging.info(f"Keywords: {sheet_dict}")
     return sheet_dict
 
