@@ -196,7 +196,7 @@ def scrape_bursa_my(sheet_dict: dict[str, list[str]]) -> None:
 
 def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
     keywords: list[str] = sheet_dict["keywords"]
-    stock_code: list[str] = sheet_dict["stock_code_cn"]
+    stock_codes: list[str] = sheet_dict["stock_code_cn"]
     page_num: int = 1
     last_page: bool = False
     driver = Driver(uc=True, headless=True)
@@ -229,6 +229,9 @@ def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
                     search_str: str = f"{announcement_title}{announcement_stock_code}{announcement_stock_name}"
                     relevant_keywords: list[str] = [keyword for keyword in keywords if
                                                     keyword in f"{search_str}".upper()]
+                    relevant_stock_codes: list[str] = [stock_code for stock_code in stock_codes
+                                                       if stock_code == announcement_stock_code]
+                    relevant_keywords += relevant_stock_codes
                     news_info: NewsInformation = NewsInformation(
                         news_link=announcement_link,
                         news_date=announcement_date,
@@ -259,7 +262,7 @@ def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
 
 def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
     keywords: list[str] = sheet_dict["keywords"]
-    stock_code: list[str] = sheet_dict["stock_code_cn"]
+    stock_codes: list[str] = sheet_dict["stock_code_cn"]
     page_num: int = 0
     last_page: bool = False
     driver = Driver(uc=True, headless=True)
@@ -319,6 +322,9 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
             announcement_title: str = announcement_details[2].find_element(By.TAG_NAME, "a").text
             search_str: str = f"{announcement_title}{announcement_stock_code}{announcement_stock_name}"
             relevant_keywords: list[str] = [keyword for keyword in keywords if keyword in f"{search_str}".upper()]
+            relevant_stock_codes: list[str] = [stock_code for stock_code in stock_codes
+                                               if stock_code == announcement_stock_code]
+            relevant_keywords += relevant_stock_codes
             news_info: NewsInformation = NewsInformation(
                 news_link=announcement_link,
                 news_date=announcement_date,
