@@ -13,7 +13,6 @@ from seleniumbase.core.sb_driver import DriverMethods
 # N.B the important thing here really is that this thing will likely need to be updated like. Quarterly. Or something.
 # so it should send out emails on failure.
 
-
 class SearchResult:
     header_text: str
     res_link: str
@@ -25,7 +24,6 @@ class SearchResult:
         self.date = date
         self.search_term = search_term
 
-
 def run_search(
         base_url: str,
         search_term: str,
@@ -35,6 +33,11 @@ def run_search(
     encoded_str: str = urllib.parse.urlencode(search_params)
     encoded_query: str = f"{base_url}{encoded_str}"
     end_of_results: bool = False
+    search_params["q"] = search_term
+
+    # This could be its own class, I guess.
+    # If I want to make a lib. for this, it will need to be able to handle *all* different search modes.
+
     try:
         driver.get(encoded_query)
         driver.add_cookie({
@@ -78,24 +81,23 @@ def run_search(
     finally:
         driver.quit()
 
-def google_search_scrape(search_terms: list[str]):
+def google_search_scrape(search_terms: list[str]) -> dict[str, list[SearchResult]]:
     base_url: str = "https://www.google.com/search?"
+    res_dict: dict[str, list[SearchResult]] = {}
     for search_term in search_terms:
         driver = Driver(uc=True, headless=False, incognito=True)
         search_params: dict[str, str] = {
-            "q": f"{search_term}",
             "tbm": "nws",
             "pws": "0",
             "tbs": "qdr:d",
             "sbd": "1"
         }
-        page_num = 0
+        res_dict[search_term] = []
         for page in run_search(
                 base_url=base_url,
                 search_term=search_term,
                 driver=driver,
                 search_params=search_params
         ):
-            for result in page:
-                print(result.header_text)
-    print("Done.")
+            res_dict[search_term] += page
+    return res_dict
