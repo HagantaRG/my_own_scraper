@@ -4,9 +4,10 @@ from datetime import datetime
 from dateutil import parser
 
 from utils.filepaths import DATA_FOLDER
+from src.google_scrape import SearchResult
 
 csv_headers: list[str] = ["link","title","date","keywords","retrieved_at"]
-def construct_email() -> str:
+def construct_webscraper_email() -> str:
     with open(f"{DATA_FOLDER}/news_data.csv", "r", newline="", encoding='utf-8') as csvfile:
         email_html: str = """
         <html>
@@ -39,3 +40,22 @@ def construct_email() -> str:
         </html>
         """
         return email_html
+
+def construct_search_email(results: dict[str, list[SearchResult]]) -> str:
+    email_html: str = """
+            <html>
+                <head></head>
+                <body>
+                    <h1>Stock Exchange Daily Webscraper</h1>\n
+                    <p>Please find below the relevant articles found today:<br>\n
+            """
+    for search_term in results.keys():
+        email_html += f"<h2>{search_term}</h2>"
+        for search_results in results[search_term]:
+            email_html += f"<a href=\"{search_results.res_link}\">{search_results.header_text}</a><br>\n"
+    email_html += """
+                    </p>
+                </body>
+            </html>
+            """
+    return email_html

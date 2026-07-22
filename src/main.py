@@ -6,7 +6,6 @@ from pathlib import Path
 import traceback
 from collections.abc import Callable
 from time import sleep
-from smtplib import SMTPException
 import shutil
 from os import makedirs
 from threading import Event
@@ -25,7 +24,7 @@ from utils.toml_reader import Toml
 from utils import email_utils, toml_reader
 from utils.scraper_utils import write_run_error_to_csv, write_run_to_csv
 from utils.thread_utils import run_threaded, run_continuously
-
+from google_scrape import google_search_scrape, SearchResult
 """
 This should be the main thing that orchestrates all the scrapers and various other tasks. 
 """
@@ -159,6 +158,9 @@ def scrape_orchestrator(
                 mail_settings=email_settings
             )
 
+    # Google search scraping
+    search_results: dict[str, list[SearchResult]] = google_search_scrape(sheet_dict=sheet_dict)
+
     # Delete temp directory post-scrape
     logging.info("Done scraping, deleting temp directory.")
     try:
@@ -168,30 +170,49 @@ def scrape_orchestrator(
 
     # Done scraping, send notifs.
     subject = f"Relevant articles found for {datetime.today().strftime('%Y-%m-%d')}"
-    body = email_utils.construct_email()
-
-    tries: int = 0
-    while tries <= 5:
-        try:
-            tries += 1
-            email_client.send_email(
-                subject=subject,
-                body=body,
-                sender=email_settings["sender"],
-                recipients=email_settings["recipients"] if not test_mode else email_settings["admin"],
-                password=email_settings["password"],
-            )
-            break
-        except SMTPException as network_error:
-            logging.info(f"Network encountered during email sending try number {tries}, trying up to 5 times.")
-            logging.info(network_error)
-            sleep(3)
-            continue
-    if tries >= 5:
-        logging.error(f"Error encountered in email sending. Emails have NOT been sent.")
+    body = email_utils.construct_webscraper_email()
+    email_client.send_email(
+        subject=subject,
+        body=body,
+        sender=email_settings["sender"],
+        recipients=email_settings["recipients"] if not test_mode else email_settings["admin"],
+        password=email_settings["password"],
+    )
+    search_body = email_utils.construct_search_email(results=search_results)
+    search_subject = f"Relevant searches found for {datetime.today().strftime('%Y-%m-%d')}"
+    email_client.send_email(
+        subject=search_subject,
+        body=search_body,
+        sender=email_settings["sender"],
+        recipients=email_settings["recipients"] if not test_mode else email_settings["admin"],
+        password=email_settings["password"],
+    )
     if test_mode:
         logging.info(f"Test run carried out without unhandled errors.")
+
     return None
+
+def google_scrape_run() -> None:
+    google_client: GoogleClient = GoogleClient(f"{SETTINGS_FOLDER}/service_credentials.json")
+
+    # Load settings, in case any changes since last run
+    settings_toml: toml_reader.Toml = Toml(Path(f"{SETTINGS_FOLDER}/settings.toml"))
+    logging.info(f"Loaded settings from {SETTINGS_FOLDER}/settings.toml")
+    email_settings: dict[str, str | list] = settings_toml.load("email-settings")
+    keyword_settings: dict[str, str | list] = settings_toml.load("keyword-document")
+    sheet_id: str = keyword_settings["sheet-id"]
+    sheet_dict: dict[str, list[str]] = retrieve_keywords_csv(google_client, sheet_id)
+
+    search_results: dict[str, list[SearchResult]] = google_search_scrape(sheet_dict=sheet_dict)
+    search_body = email_utils.construct_search_email(results=search_results)
+    search_subject = f"Relevant searches found for {datetime.today().strftime('%Y-%m-%d')}"
+    email_client.send_email(
+        subject=search_subject,
+        body=search_body,
+        sender=email_settings["sender"],
+        recipients=email_settings["admin"],
+        password=email_settings["password"],
+    )
 
 stop_event: Event = Event()
 try:
@@ -246,6 +267,8 @@ try:
                         test_mode=True,
                         target_site=site_code
                     )
+            case "google-scrape":
+                run_threaded(google_scrape_run)
             case _:
                 print("Invalid command.")
         sleep(0.5)
