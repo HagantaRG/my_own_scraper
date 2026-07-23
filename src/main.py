@@ -227,6 +227,7 @@ try:
                     f"standard-schedule: Standard scheduled scraper, running at 9:00 AM local time every day.\n"
                     f"single-scrape: Runs the scraper once. Does not schedule anything.\n"
                     f"single-site: Scrapes one of the supported websites. Available codes will be displayed on selection."
+                    f"google-scrape: Only runs the google scraper."
                 )
             case "test-run":
                 run_threaded(
