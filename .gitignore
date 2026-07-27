@@ -93,5 +93,6 @@ NewsScraper/
 downloaded_files/
 build/
 data/
+temp/
 NewsScraper.zip
 NewsScraper.spec
