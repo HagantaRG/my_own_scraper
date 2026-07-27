@@ -4,7 +4,7 @@ from datetime import datetime
 from dateutil import parser
 
 from utils.filepaths import DATA_FOLDER
-from src.google_scrape import SearchResult
+from src.scrapers.google_scrape import SearchResult
 
 csv_headers: list[str] = ["link","title","date","keywords","retrieved_at"]
 def construct_webscraper_email() -> str:
