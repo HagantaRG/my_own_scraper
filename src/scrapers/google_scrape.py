@@ -95,7 +95,7 @@ def google_search_scrape(sheet_dict: dict[str, list[str]]) -> dict[str, list[Sea
     search_terms: list[str] = sheet_dict["google_search_terms"]
     base_url: str = "https://www.google.com/search?"
     res_dict: dict[str, list[SearchResult]] = {}
-    driver = Driver(uc=True, headless=False, incognito=True)
+    driver = Driver(uc=True, headless=True, incognito=True)
     try:
         for search_term in search_terms:
             logging.info(f"Starting search scrape for {search_term}")
