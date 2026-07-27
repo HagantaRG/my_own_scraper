@@ -12,8 +12,6 @@ from selenium.common.exceptions import WebDriverException
 
 
 # Custom libs
-import src.scrapers.exchange_scrapers
-import src.scrapers.google_scrape
 from src.gmail_client import GoogleClient
 from src.scrapers import exchange_scrapers as scrapers
 from src.scrapers.google_scrape import google_search_scrape, SearchResult
@@ -133,7 +131,7 @@ class ScrapeOrchestrator:
                 subject=search_subject,
                 body=search_body,
                 sender=self.email_settings["sender"],
-                recipients=self.email_settings["admin"],
+                recipients=self.email_settings["recipients"],
                 password=self.email_settings["password"],
             )
 

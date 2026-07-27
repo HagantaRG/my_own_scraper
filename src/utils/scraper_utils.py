@@ -3,8 +3,8 @@ import logging
 from os import path, makedirs
 from datetime import datetime, timedelta
 
-from utils.news_utils import NewsInformation
-from utils.filepaths import DATA_FOLDER
+from src.utils.news_utils import NewsInformation
+from src.utils.filepaths import DATA_FOLDER
 
 logger = logging.getLogger(__name__)
 news_data_headers: list[str] = ["link", "title", "date", "keywords", "retrieved_at"]

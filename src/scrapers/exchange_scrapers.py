@@ -9,8 +9,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 from seleniumbase import Driver
 
-from utils.news_utils import NewsInformation
-from utils.scraper_utils import write_info_to_csv, check_run_done
+from src.utils.news_utils import NewsInformation
+from src.utils.scraper_utils import write_info_to_csv, check_run_done
 
 logger = logging.getLogger(__name__)
 

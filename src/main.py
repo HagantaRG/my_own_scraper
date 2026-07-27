@@ -8,10 +8,10 @@ from time import sleep
 # Third party libs
 from schedule import every, clear
 
-from src.scrapers import ScrapeOrchestrator
 # Custom libs
-from utils.filepaths import LOGS_FOLDER
-from utils.thread_utils import run_threaded, run_continuously
+from src.scrapers import ScrapeOrchestrator
+from src.utils.filepaths import LOGS_FOLDER
+from src.utils.thread_utils import run_threaded, run_continuously
 
 """
 This should be the main thing that orchestrates all the scrapers and various other tasks. 
