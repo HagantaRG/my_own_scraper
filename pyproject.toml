@@ -1,20 +1,21 @@
-[tool.poetry]
+[project]
 name = "my-own-scraper"
 version = "0.1.0"
 description = "A stock-exchange and news scraper."
-authors = []
-packages = [{ include = "src" }]
+requires-python = ">=3.12,<4.0"
+dependencies = [
+    "python-dateutil~=2.9.0.post0",
+    "schedule~=1.2.2",
+    "selenium~=4.43.0",
+    "seleniumbase~=4.48.4",
+    "requests~=2.33.1",
+    "google-api-python-client~=2.198.0",
+    "google-auth-httplib2~=0.4.0",
+]
 
-[tool.poetry.dependencies]
-# The code uses Python 3.12 type-alias syntax and the standard-library tomllib module.
-python = ">=3.12,<4.0"
-python-dateutil = "~=2.9.0.post0"
-schedule = "~=1.2.2"
-selenium = "~=4.43.0"
-seleniumbase = "~=4.48.4"
-requests = "~=2.33.1"
-google-api-python-client = "~=2.198.0"
-google-auth-httplib2 = "~=0.4.0"
+[tool.poetry]
+# The repository uses src itself as the importable top-level package.
+packages = [{ include = "src", from = "." }]
 
 [tool.poetry.group.dev.dependencies]
 # Ruff provides both linting and formatting from the project environment.
