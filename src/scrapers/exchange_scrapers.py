@@ -36,55 +36,55 @@ def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
         )
     except TimeoutException:
         pass
+
     more_button: WebElement = driver.find_element(By.CSS_SELECTOR, ".component-loadmore__link.component-loadmore__icon")
     WebDriverWait(driver, 10).until(
         EC.element_to_be_clickable(more_button)
     )
     more_button.click()
+
     try:
-        while not last_page:
-            logger.info(f"Waiting for element presence in {scrape_link}")
-            WebDriverWait(driver, 60).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr > td"))
+        logger.info(f"Waiting for element presence in {scrape_link}")
+        WebDriverWait(driver, 60).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr > td"))
+        )
+        logger.info(f"Retrieving announcements for {scrape_link}")
+        announcements: list[WebElement] = driver.find_elements(By.CSS_SELECTOR, "tbody > tr")
+        logger.info(f"Found {len(announcements)} announcements, parsing...")
+        for announcement in announcements:
+            # Get link for announcement content
+            announcement_details: list[WebElement] = announcement.find_elements(
+                By.TAG_NAME,
+                "td"
             )
-            logger.info(f"Retrieving announcements for {scrape_link}")
-            announcements: list[WebElement] = driver.find_elements(By.CSS_SELECTOR, "tbody > tr")
-            logger.info(f"Found {len(announcements)} announcements, parsing...")
-            for announcement in announcements:
-                # Get link for announcement content
-                announcement_details: list[WebElement] = announcement.find_elements(
-                    By.TAG_NAME,
-                    "td"
-                )
-                announcement_title: str = announcement_details[3].text
-                announcement_stock_name: str = announcement_details[2].text
-                announcement_link: str = announcement_details[3].find_element(By.CLASS_NAME, "doc-link").find_element(By.TAG_NAME, "a").get_attribute("href")
-                logger.debug(f"looking through {announcement_title}")
-                announcement_date: datetime = datetime.strptime(
-                    announcement_details[0].text,
-                    "%d/%m/%Y %H:%M"
-                )
+            announcement_title: str = announcement_details[3].text
+            announcement_stock_name: str = announcement_details[2].text
+            announcement_link: str = announcement_details[3].find_element(By.CLASS_NAME, "doc-link").find_element(By.TAG_NAME, "a").get_attribute("href")
+            logger.debug(f"looking through {announcement_title}")
+            announcement_date: datetime = datetime.strptime(
+                announcement_details[0].text,
+                "%d/%m/%Y %H:%M"
+            )
 
-                relevant_keywords: list[str] = [keyword for keyword in keywords if
-                                                keyword in f"{announcement_title}{announcement_stock_name}".upper()]
+            relevant_keywords: list[str] = [keyword for keyword in keywords if
+                                            keyword in f"{announcement_title}{announcement_stock_name}".upper()]
 
-                news_info: NewsInformation = NewsInformation(
-                    news_link=announcement_link,
-                    news_date=announcement_date,
-                    news_title=announcement_title,
-                    retrieved_at=datetime.now(),
-                    relevant_keywords=relevant_keywords if len(relevant_keywords) > 0 else [""]
-                )
+            news_info: NewsInformation = NewsInformation(
+                news_link=announcement_link,
+                news_date=announcement_date,
+                news_title=announcement_title,
+                retrieved_at=datetime.now(),
+                relevant_keywords=relevant_keywords if len(relevant_keywords) > 0 else [""]
+            )
 
-                if check_run_done(news_info):
-                    last_page = True
-                    break
+            if check_run_done(news_info):
+                break
 
-                if news_info.relevant_keywords != [""]:
-                    write_info_to_csv(news_info)
+            if news_info.relevant_keywords != [""]:
+                write_info_to_csv(news_info)
 
-                count += 1
-            logger.info(f"Done scraping HKX, scraped total of {count} announcements")
+            count += 1
+        logger.info(f"Done scraping HKX, scraped total of {count} announcements")
     finally:
         driver.quit()
 
