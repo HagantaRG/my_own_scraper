@@ -73,6 +73,7 @@ def run_search(
             current_html: str = driver.find_element(By.XPATH, "//body").get_attribute(
                 "outerHTML"
             )
+            tries += 1
         search_element_children: list[WebElement] = driver.find_elements(
             By.CSS_SELECTOR, '[id="search"] *'
         )
