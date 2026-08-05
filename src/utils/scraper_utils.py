@@ -1,12 +1,13 @@
 import csv
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from os import makedirs, path
 
 from src.utils.filepaths import DATA_FOLDER
 from src.utils.news_utils import NewsInformation
 
 logger = logging.getLogger(__name__)
+GMT_PLUS_7 = timezone(timedelta(hours=7))
 news_data_headers: list[str] = ["link", "title", "date", "keywords", "retrieved_at"]
 run_data_headers: list[str] = [
     "job_name",
@@ -100,7 +101,7 @@ def write_run_error_to_csv(
 
 
 def check_run_done(news: NewsInformation) -> bool:
-    if datetime.now() > news.news_date + timedelta(days=1, hours=12):
+    if datetime.now(GMT_PLUS_7) > news.news_date + timedelta(days=1, hours=12):
         logger.info(
             "Announcement older than 1 day, 12 hours. Done looking through latest announcements, scrape finished."
         )

@@ -1,5 +1,5 @@
 import csv
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from dateutil import parser
 
@@ -7,6 +7,7 @@ from src.scrapers.google_scrape import SearchResult
 from src.utils.filepaths import DATA_FOLDER
 
 csv_headers: list[str] = ["link", "title", "date", "keywords", "retrieved_at"]
+GMT_PLUS_7 = timezone(timedelta(hours=7))
 
 
 def construct_webscraper_email() -> str:
@@ -21,21 +22,21 @@ def construct_webscraper_email() -> str:
                 <p>Please find below the relevant articles found today:<br>\n
         """
         reader: csv.DictReader = csv.DictReader(csvfile, fieldnames=csv_headers)
-        site_dict: dict = dict()
+        site_dict: dict[str, list[list[str]]] = {}
         for row in reader:
             if row["keywords"] == "":
                 continue
             retrieval_date: datetime = parser.parse(row["retrieved_at"])
-            if retrieval_date.date() == datetime.today().date():
+            if retrieval_date.date() == datetime.now(GMT_PLUS_7).date():
                 site_name: str = row["link"].split("//")[1].split("/")[0]
                 data: list = [row["link"], row["title"], row["date"], row["keywords"]]
                 if site_name not in site_dict:
                     site_dict[site_name] = [data]
                 else:
                     site_dict[site_name].append(data)
-        for sites in site_dict:
+        for sites, infos in site_dict.items():
             email_html += f"<h2>{sites}</h2>"
-            for site_data in site_dict[sites]:
+            for site_data in infos:
                 email_html += f'<a href="{site_data[0]}">{site_data[1]}</a> - found keyword(s) {site_data[3]}<br>\n'
         email_html += """
                 </p>
@@ -53,9 +54,9 @@ def construct_search_email(results: dict[str, list[SearchResult]]) -> str:
                     <h1>Stock Exchange Daily Webscraper</h1>\n
                     <p>Please find below the relevant articles found today:<br>\n
             """
-    for search_term in results:
+    for search_term, data in results.items():
         email_html += f"<h2>{search_term}</h2>"
-        for search_results in results[search_term]:
+        for search_results in data:
             email_html += f'<a href="{search_results.res_link}">{search_results.header_text}</a><br>\n'
     email_html += """
                     </p>

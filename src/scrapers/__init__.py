@@ -4,7 +4,7 @@ import shutil
 import traceback
 from collections.abc import Callable
 from csv import DictReader
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Third party libs
@@ -21,6 +21,7 @@ from src.utils.scraper_utils import write_run_error_to_csv, write_run_to_csv
 from src.utils.toml_reader import Toml
 
 logger = logging.getLogger(__name__)
+GMT_PLUS_7 = timezone(timedelta(hours=7))
 
 
 class ScrapeOrchestrator:
@@ -83,7 +84,7 @@ class ScrapeOrchestrator:
     def run_google_scrape(self) -> None:
         tries: int = 0
         exc: Exception = Exception()
-        start_time: datetime = datetime.now()
+        start_time: datetime = datetime.now(GMT_PLUS_7)
         job_name: str = "GoogleScrape"
         search_results: dict[str, list[SearchResult]] = {}
         while tries < 5:
@@ -91,7 +92,7 @@ class ScrapeOrchestrator:
                 tries += 1
                 logger.info(f"Running {job_name}, attempt {tries}")
                 search_results = google_search_scrape(sheet_dict=self.keywords_sheet)
-                end_time: datetime = datetime.now()
+                end_time: datetime = datetime.now(GMT_PLUS_7)
                 scrape_time: timedelta = end_time - start_time
                 logger.info(
                     f"{job_name} scrape completed! Took {scrape_time.total_seconds()} seconds"
@@ -138,9 +139,7 @@ class ScrapeOrchestrator:
             search_body: str = email_utils.construct_search_email(
                 results=search_results
             )
-            search_subject: str = (
-                f"Relevant searches found for {datetime.today().strftime('%Y-%m-%d')}"
-            )
+            search_subject: str = f"Relevant searches found for {datetime.now(GMT_PLUS_7).strftime('%Y-%m-%d')}"
             send_email(
                 subject=search_subject,
                 body=search_body,
@@ -156,13 +155,13 @@ class ScrapeOrchestrator:
     ) -> None:
         tries: int = 0
         exc: Exception = Exception()
-        start_time: datetime = datetime.now()
+        start_time: datetime = datetime.now(GMT_PLUS_7)
         while tries < 5:
             try:
                 tries += 1
                 logger.info(f"Running {job_name}, attempt {tries}")
                 job(self.keywords_sheet)
-                end_time: datetime = datetime.now()
+                end_time: datetime = datetime.now(GMT_PLUS_7)
                 scrape_time: timedelta = end_time - start_time
                 logger.info(
                     f"{job_name} scrape completed! Took {scrape_time.total_seconds()} seconds"
@@ -228,7 +227,7 @@ class ScrapeOrchestrator:
             logger.error("Error: %s - %s.", e.filename, e.strerror)
 
         # Done scraping, send notifs.
-        subject = f"Relevant articles found for {datetime.today().strftime('%Y-%m-%d')}"
+        subject = f"Relevant articles found for {datetime.now(GMT_PLUS_7).strftime('%Y-%m-%d')}"
         body = email_utils.construct_webscraper_email()
         send_email(
             subject=subject,

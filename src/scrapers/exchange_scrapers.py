@@ -1,6 +1,7 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from json import loads
+from zoneinfo import ZoneInfo
 
 from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
@@ -14,6 +15,12 @@ from src.utils.news_utils import NewsInformation
 from src.utils.scraper_utils import check_run_done, write_info_to_csv
 
 logger = logging.getLogger(__name__)
+GMT_PLUS_7 = timezone(timedelta(hours=7))
+HONG_KONG_TIME = ZoneInfo("Asia/Hong_Kong")
+SINGAPORE_TIME = ZoneInfo("Asia/Singapore")
+KUALA_LUMPUR_TIME = ZoneInfo("Asia/Kuala_Lumpur")
+SHENZHEN_TIME = ZoneInfo("Asia/Shanghai")
+SHANGHAI_TIME = ZoneInfo("Asia/Shanghai")
 
 
 def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
@@ -40,7 +47,7 @@ def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
         except TimeoutException:
             pass
 
-        cutoff_date: datetime = datetime.now() - timedelta(hours=36)
+        cutoff_date: datetime = datetime.now(GMT_PLUS_7) - timedelta(hours=36)
         last_datetime: datetime | None = None
         logger.info(f"Waiting for element presence in {scrape_link}")
         WebDriverWait(driver, 60).until(
@@ -77,7 +84,7 @@ def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
             )
             announcement_datetime: datetime = datetime.strptime(
                 announcement_details[0].text, "%d/%m/%Y %H:%M"
-            )
+            ).replace(tzinfo=HONG_KONG_TIME)
 
             if (
                 announcement_datetime != last_datetime
@@ -106,7 +113,7 @@ def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
             logger.debug(f"looking through {announcement_title}")
             announcement_date: datetime = datetime.strptime(
                 announcement_details[0].text, "%d/%m/%Y %H:%M"
-            )
+            ).replace(tzinfo=HONG_KONG_TIME)
 
             relevant_keywords: list[str] = [
                 keyword
@@ -118,7 +125,7 @@ def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
                 news_link=announcement_link,
                 news_date=announcement_date,
                 news_title=announcement_title,
-                retrieved_at=datetime.now(),
+                retrieved_at=datetime.now(GMT_PLUS_7),
                 relevant_keywords=relevant_keywords
                 if len(relevant_keywords) > 0
                 else [""],
@@ -162,7 +169,7 @@ def scrape_sgx(sheet_dict: dict[str, list[str]]) -> None:
                 )
                 announcement_date: datetime = datetime.strptime(
                     announcement_data[0].text, "%d %b %Y %H:%M %p"
-                )
+                ).replace(tzinfo=SINGAPORE_TIME)
                 issuer_name: str = announcement_data[1].text
                 security_name: str = announcement_data[2].text
                 title: str = announcement_data[3].text
@@ -181,7 +188,7 @@ def scrape_sgx(sheet_dict: dict[str, list[str]]) -> None:
                     news_link=link,
                     news_date=announcement_date,
                     news_title=title,
-                    retrieved_at=datetime.now(),
+                    retrieved_at=datetime.now(GMT_PLUS_7),
                     relevant_keywords=relevant_keywords
                     if len(relevant_keywords) > 0
                     else [""],
@@ -208,7 +215,7 @@ def scrape_bursa_my(sheet_dict: dict[str, list[str]]) -> None:
     ## Use their API, you can probably access it.
     keywords: list[str] = sheet_dict["keywords"]
     count = 0
-    current_time: int = int(datetime.now().timestamp())
+    current_time: int = int(datetime.now(GMT_PLUS_7).timestamp())
     page_count: int = 0
     last_page: bool = False
     driver = Driver(uc=True, headless=True)
@@ -238,12 +245,14 @@ def scrape_bursa_my(sheet_dict: dict[str, list[str]]) -> None:
                     for keyword in keywords
                     if keyword in f"{title}{company_name}".upper()
                 ]
-                announcement_date: datetime = datetime.strptime(date_str, "%d %b %Y")
+                announcement_date: datetime = datetime.strptime(
+                    date_str, "%d %b %Y"
+                ).replace(tzinfo=KUALA_LUMPUR_TIME)
                 news_info: NewsInformation = NewsInformation(
                     news_link=link,
                     news_date=announcement_date,
                     news_title=title,
-                    retrieved_at=datetime.now(),
+                    retrieved_at=datetime.now(GMT_PLUS_7),
                     relevant_keywords=relevant_keywords
                     if len(relevant_keywords) > 0
                     else [""],
@@ -308,7 +317,7 @@ def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
                 # This date extraction is because the Shenzhen stock exchange for some reason uses *TWO* datetime formats.
                 announcement_date: datetime = datetime.strptime(
                     date_text.split(" ")[0], "%Y-%m-%d"
-                )
+                ).replace(tzinfo=SHENZHEN_TIME)
                 for file in announcement_files:
                     count += 1
                     announcement_title: str = file.get_attribute("data-title")
@@ -329,7 +338,7 @@ def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
                         news_link=announcement_link,
                         news_date=announcement_date,
                         news_title=announcement_title,
-                        retrieved_at=datetime.now(),
+                        retrieved_at=datetime.now(GMT_PLUS_7),
                         relevant_keywords=relevant_keywords
                         if len(relevant_keywords) > 0
                         else [""],
@@ -417,7 +426,9 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
                 .get_attribute("href")
             )
             date_text: str = announcement_details[5].text
-            announcement_date: datetime = datetime.strptime(date_text, "%Y-%m-%d")
+            announcement_date: datetime = datetime.strptime(
+                date_text, "%Y-%m-%d"
+            ).replace(tzinfo=SHANGHAI_TIME)
             if ann_class == "multiple_bag" or "last_multiple" in ann_class:
                 pass
             else:
@@ -444,7 +455,7 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
                 news_link=announcement_link,
                 news_date=announcement_date,
                 news_title=announcement_title,
-                retrieved_at=datetime.now(),
+                retrieved_at=datetime.now(GMT_PLUS_7),
                 relevant_keywords=relevant_keywords
                 if len(relevant_keywords) > 0
                 else [""],

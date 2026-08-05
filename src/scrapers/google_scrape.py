@@ -1,7 +1,7 @@
 import logging
 import urllib.parse
 from collections.abc import Generator
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from time import sleep
 
 from selenium.common.exceptions import WebDriverException
@@ -11,6 +11,7 @@ from seleniumbase import Driver
 from seleniumbase.core.sb_driver import DriverMethods
 
 logger = logging.getLogger(__name__)
+GMT_PLUS_7 = timezone(timedelta(hours=7))
 
 
 # N.B the important thing here really is that this thing will likely need to be updated like. Quarterly. Or something.
@@ -82,7 +83,9 @@ def run_search(
             By.CSS_SELECTOR, "span[data-ts]"
         )
         dates: list[datetime] = [
-            datetime.fromtimestamp(float(date_element.get_attribute("data-ts")))
+            datetime.fromtimestamp(
+                float(date_element.get_attribute("data-ts")), GMT_PLUS_7
+            )
             for date_element in date_elements
         ]
         headings: list[WebElement] = driver.find_elements(
