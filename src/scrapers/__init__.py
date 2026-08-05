@@ -20,6 +20,8 @@ from src.utils.filepaths import SETTINGS_FOLDER, TEMP_FOLDER
 from src.utils.scraper_utils import write_run_error_to_csv, write_run_to_csv
 from src.utils.toml_reader import Toml
 
+logger = logging.getLogger(__name__)
+
 
 class ScrapeOrchestrator:
     keywords_sheet: dict[str, list[str]] = ...
@@ -33,13 +35,13 @@ class ScrapeOrchestrator:
     def _retrieve_keywords_csv(
         self,
     ) -> None:
-        logging.info("Retrieving keywords CSV.")
+        logger.info("Retrieving keywords CSV.")
         sheet_paths: list[Path] = self.google_client.get_spreadsheet_as_csv(
             spreadsheet_id=self.keywords_sheet_id,
             target_folder=TEMP_FOLDER,
             sheet_name="keywords",
         )
-        logging.info("Retrieved CSV.")
+        logger.info("Retrieved CSV.")
         sheet_dict: dict[str, list[str]] = {}
         with open(sheet_paths[0], "r", encoding="utf-8") as csv_file:
             csv_reader: DictReader = DictReader(csv_file, delimiter=",")
@@ -51,7 +53,7 @@ class ScrapeOrchestrator:
                         continue
                     else:
                         sheet_dict[field].append(str(row[field]).upper())
-        logging.info(f"Keywords: {sheet_dict}")
+        logger.info(f"Keywords: {sheet_dict}")
         self.keywords_sheet = sheet_dict
 
     def _retrieve_google_client(self) -> None:
@@ -62,13 +64,13 @@ class ScrapeOrchestrator:
         # Load settings, in case any changes since last run
         settings_path = Path(SETTINGS_FOLDER) / "settings.toml"
         settings_toml: toml_reader.Toml = Toml(settings_path)
-        logging.info(
+        logger.info(
             "Loading settings from %s (exists=%s)",
             settings_path.resolve(),
             settings_path.exists(),
         )
         self.email_settings = settings_toml.load("email-settings")
-        logging.info(
+        logger.info(
             "Loaded email settings keys: %s; admin present=%s; admin value type=%s",
             list(self.email_settings.keys()),
             "admin" in self.email_settings,
@@ -87,11 +89,11 @@ class ScrapeOrchestrator:
         while tries < 5:
             try:
                 tries += 1
-                logging.info(f"Running {job_name}, attempt {tries}")
+                logger.info(f"Running {job_name}, attempt {tries}")
                 search_results = google_search_scrape(sheet_dict=self.keywords_sheet)
                 end_time: datetime = datetime.now()
                 scrape_time: timedelta = end_time - start_time
-                logging.info(
+                logger.info(
                     f"{job_name} scrape completed! Took {scrape_time.total_seconds()} seconds"
                 )
                 write_run_to_csv(
@@ -102,9 +104,9 @@ class ScrapeOrchestrator:
                 )
                 break
             except WebDriverException as exception:
-                logging.error(exception)
-                logging.error(traceback.format_exception(exception))
-                logging.error(
+                logger.error(exception)
+                logger.error(traceback.format_exception(exception))
+                logger.error(
                     f"WebDriver error during scrape job {job_name}.\n This likely means the page format"
                     f" has changed and code changes are required"
                 )
@@ -118,11 +120,11 @@ class ScrapeOrchestrator:
                 # N.B. this generic retry is here because if there is an issue with the HTML of the page,
                 # e.g. if the page that is loaded has 1 less element than normal somewhere, it would cause a generic error.
                 # and I have no real way of differentiating it.
-                logging.error(exception)
-                logging.error(traceback.format_exception(exception))
-                logging.error("Generic error encountered during scrape job, retrying.")
+                logger.error(exception)
+                logger.error(traceback.format_exception(exception))
+                logger.error("Generic error encountered during scrape job, retrying.")
         else:
-            logging.error(
+            logger.error(
                 f"{job_name} scrape attempted {tries} times, ending attempts. Emailing admin."
             )
             send_email(
@@ -158,11 +160,11 @@ class ScrapeOrchestrator:
         while tries < 5:
             try:
                 tries += 1
-                logging.info(f"Running {job_name}, attempt {tries}")
+                logger.info(f"Running {job_name}, attempt {tries}")
                 job(self.keywords_sheet)
                 end_time: datetime = datetime.now()
                 scrape_time: timedelta = end_time - start_time
-                logging.info(
+                logger.info(
                     f"{job_name} scrape completed! Took {scrape_time.total_seconds()} seconds"
                 )
                 write_run_to_csv(
@@ -171,11 +173,11 @@ class ScrapeOrchestrator:
                     end_time=end_time,
                     duration=scrape_time,
                 )
-                return None
+                return
             except WebDriverException as exception:
-                logging.error(exception)
-                logging.error(traceback.format_exception(exception))
-                logging.error(
+                logger.error(exception)
+                logger.error(traceback.format_exception(exception))
+                logger.error(
                     f"WebDriver error during scrape job {job_name}.\n This likely means the page format"
                     f" has changed and code changes are required"
                 )
@@ -189,21 +191,20 @@ class ScrapeOrchestrator:
                 # N.B. this generic retry is here because if there is an issue with the HTML of the page,
                 # e.g. if the page that is loaded has 1 less element than normal somewhere, it would cause a generic error.
                 # and I have no real way of differentiating it.
-                logging.error(exception)
-                logging.error(traceback.format_exception(exception))
-                logging.error("Generic error encountered during scrape job, retrying.")
-        else:
-            logging.error(
-                f"{job_name} scrape attempted {tries} times, ending attempts. Emailing admin."
-            )
-            send_email(
-                subject=f"Repeated failure of {job_name}",
-                body=f"{traceback.format_exception(exc)} \n {exc}",
-                sender=self.email_settings["sender"],
-                recipients=self.email_settings["admin"],
-                password=self.email_settings["password"],
-            )
-            return None
+                logger.error(exception)
+                logger.error(traceback.format_exception(exception))
+                logger.error("Generic error encountered during scrape job, retrying.")
+        logger.error(
+            f"{job_name} scrape attempted {tries} times, ending attempts. Emailing admin."
+        )
+        send_email(
+            subject=f"Repeated failure of {job_name}",
+            body=f"{traceback.format_exception(exc)} \n {exc}",
+            sender=self.email_settings["sender"],
+            recipients=self.email_settings["admin"],
+            password=self.email_settings["password"],
+        )
+        return
 
     def orchestrate(self, test_mode: bool = False, target_site: str = ...) -> None:
         self._retrieve_settings()
@@ -214,17 +215,17 @@ class ScrapeOrchestrator:
             if callable(item) and a.startswith("scrape_") and target_site is ...:
                 self._run_scrape_job(job=item, job_name=a.title())
             elif target_site is not ... and target_site in a.title().lower():
-                logging.info(f"Running scrape for {target_site} website.")
+                logger.info(f"Running scrape for {target_site} website.")
                 self._run_scrape_job(
                     job=item,
                     job_name=a.title(),
                 )
         # Delete temp directory post-scrape
-        logging.info("Done scraping, deleting temp directory.")
+        logger.info("Done scraping, deleting temp directory.")
         try:
             shutil.rmtree(TEMP_FOLDER)
         except OSError as e:
-            logging.error("Error: %s - %s." % (e.filename, e.strerror))
+            logger.error("Error: %s - %s.", e.filename, e.strerror)
 
         # Done scraping, send notifs.
         subject = f"Relevant articles found for {datetime.today().strftime('%Y-%m-%d')}"
@@ -242,6 +243,4 @@ class ScrapeOrchestrator:
         self.run_google_scrape()
 
         if test_mode:
-            logging.info("Test run carried out without unhandled errors.")
-
-        return None
+            logger.info("Test run carried out without unhandled errors.")

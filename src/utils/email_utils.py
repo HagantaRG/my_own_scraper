@@ -29,12 +29,11 @@ def construct_webscraper_email() -> str:
             if retrieval_date.date() == datetime.today().date():
                 site_name: str = row["link"].split("//")[1].split("/")[0]
                 data: list = [row["link"], row["title"], row["date"], row["keywords"]]
-                if site_name not in site_dict.keys():
+                if site_name not in site_dict:
                     site_dict[site_name] = [data]
                 else:
                     site_dict[site_name].append(data)
-            ...
-        for sites in site_dict.keys():
+        for sites in site_dict:
             email_html += f"<h2>{sites}</h2>"
             for site_data in site_dict[sites]:
                 email_html += f'<a href="{site_data[0]}">{site_data[1]}</a> - found keyword(s) {site_data[3]}<br>\n'
@@ -54,7 +53,7 @@ def construct_search_email(results: dict[str, list[SearchResult]]) -> str:
                     <h1>Stock Exchange Daily Webscraper</h1>\n
                     <p>Please find below the relevant articles found today:<br>\n
             """
-    for search_term in results.keys():
+    for search_term in results:
         email_html += f"<h2>{search_term}</h2>"
         for search_results in results[search_term]:
             email_html += f'<a href="{search_results.res_link}">{search_results.header_text}</a><br>\n'

@@ -27,17 +27,17 @@ def send_email(
                 smtp_server.login(sender, password)
                 smtp_server.sendmail(sender, recipients, msg.as_string())
             logger.info(f"Email sent to {recipients} from {sender}")
-            return None
+            return
         except SMTPException as network_error:
             if tries > max_tries:
-                logging.error(
+                logger.error(
                     f"Error encountered in email sending {max_tries} times. Emails have NOT been sent."
                 )
-                return None
+                return
             else:
-                logging.info(
+                logger.info(
                     f"Network encountered during email sending try number {tries}, trying up to 5 times."
                 )
-                logging.info(network_error)
+                logger.info(network_error)
                 sleep(1)
-    return None
+    return

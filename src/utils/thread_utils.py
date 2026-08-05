@@ -5,6 +5,8 @@ from time import sleep
 
 from schedule import run_pending
 
+logger = logging.getLogger(__name__)
+
 
 def run_threaded(job_func: Callable, *args, **kwargs):
     job_thread = Thread(target=job_func, args=args, kwargs=kwargs, daemon=True)
@@ -33,5 +35,5 @@ def run_continuously(interval=1):
 
     background_scheduler = ScheduleThread(daemon=True)
     background_scheduler.start()
-    logging.info("Background scheduler started.")
+    logger.info("Background scheduler started.")
     return stopper_event

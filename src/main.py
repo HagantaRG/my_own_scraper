@@ -13,6 +13,8 @@ from src.scrapers import ScrapeOrchestrator
 from src.utils.filepaths import LOGS_FOLDER
 from src.utils.thread_utils import run_continuously, run_threaded
 
+logger = logging.getLogger(__name__)
+
 """
 This should be the main thing that orchestrates all the scrapers and various other tasks. 
 """
@@ -54,13 +56,13 @@ try:
                 # and *that* thread will spin up another daemon thread for the daily scrape jobs.
                 clear()
                 stop_event.set()
-                logging.info(
+                logger.info(
                     "Cleared any existing jobs, cleared previously existing schedulers."
                 )
                 stock_scrape_schedule = (
                     every().day.at("09:00").do(run_threaded, orchestrator.orchestrate)
                 )
-                logging.info("9AM scrapes scheduled.")
+                logger.info("9AM scrapes scheduled.")
                 stop_event: Event = run_continuously()
             case "single-scrape":
                 run_threaded(orchestrator.orchestrate)

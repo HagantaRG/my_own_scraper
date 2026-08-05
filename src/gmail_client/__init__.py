@@ -31,9 +31,7 @@ class GoogleClient:
         url: str = spreadsheet_url.replace("edit", "export")
 
         # I am too lazy to handle this properly. The keywords CSV should only have one sheet associated with it ANYWAY.
-        sheet_num: int = 0
-        for sheet in result["sheets"]:
-            sheet_num += 1
+        for sheet_num, sheet in enumerate(result["sheets"]):
             params = {
                 "id": spreadsheet_id,
                 "format": "csv",

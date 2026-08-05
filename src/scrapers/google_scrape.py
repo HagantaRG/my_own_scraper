@@ -1,14 +1,16 @@
 import logging
 import urllib.parse
+from collections.abc import Generator
 from datetime import datetime
 from time import sleep
-from typing import Generator
 
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from seleniumbase import Driver
 from seleniumbase.core.sb_driver import DriverMethods
+
+logger = logging.getLogger(__name__)
 
 
 # N.B the important thing here really is that this thing will likely need to be updated like. Quarterly. Or something.
@@ -58,7 +60,7 @@ def run_search(
             "outerHTML"
         )
         while "captcha" in current_html:
-            logging.info(
+            logger.info(
                 "Captcha detected in current HTML, waiting 10 seconds and retrying."
             )
             sleep(10)
@@ -70,7 +72,7 @@ def run_search(
             By.CSS_SELECTOR, '[id="search"] *'
         )
         if len(search_element_children) == 0:
-            logging.info(f"No results found for search term {search_params['q']}")
+            logger.info(f"No results found for search term {search_params['q']}")
             end_of_results = True
             continue
         driver.wait_for_element_present(
@@ -103,12 +105,11 @@ def run_search(
                 By.CSS_SELECTOR, 'a[id="pnnext"]'
             )
             encoded_query = next_button.get_attribute("href")
-            logging.info(f"Going to next page for search term {search_params['q']}")
+            logger.info(f"Going to next page for search term {search_params['q']}")
         except WebDriverException:
             end_of_results = True
-            pass
         yield search_results
-    logging.info(
+    logger.info(
         f"End of results reached for {search_params['q']}, found {len(search_results)} results."
     )
     return "End of results"
@@ -123,7 +124,7 @@ def google_search_scrape(
     driver = Driver(uc=True, headless=True, incognito=True)
     try:
         for search_term in search_terms:
-            logging.info(f"Starting search scrape for {search_term}")
+            logger.info(f"Starting search scrape for {search_term}")
             search_params: dict[str, str] = {
                 "tbm": "nws",
                 "pws": "0",

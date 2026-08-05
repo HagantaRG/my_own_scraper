@@ -3,9 +3,10 @@ This module provides the means to load settings from TOML configuration files.
 """
 
 # Import from standard libraries
+from collections.abc import Callable
 from datetime import date, datetime, time
 from pathlib import Path
-from typing import Any, Callable, Final
+from typing import Any, Final
 
 from tomllib import TOMLDecodeError, load
 
