@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from json import loads
 
 from selenium.common.exceptions import TimeoutException, WebDriverException
@@ -7,6 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
+from seleniumbase.core.sb_driver import WebDriver
 from seleniumbase import Driver
 
 from src.utils.news_utils import NewsInformation
@@ -20,37 +21,68 @@ def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
     count = 0
     scrape_link: str = "https://www1.hkexnews.hk/listedco/listconews/index/lci.html?lang=en"
     driver = Driver(uc=True, headless=True)
-    logger.info(f"Starting scrape for {scrape_link}")
-    last_page: bool = False
-    driver.get(scrape_link)
-    days_button: WebElement = driver.find_element(By.CLASS_NAME, "sevenDays")
-    days_button.click()
     try:
-        WebDriverWait(driver, 5).until(
-            EC.presence_of_element_located((By.ID, "onetrust-reject-all-handler"))
-        )
-        logger.info("Found reject button in HKX, clicking.")
-        driver.find_element(By.ID, "onetrust-reject-all-handler").click()
-        WebDriverWait(driver, 5).until(
-            EC.invisibility_of_element_located((By.ID, "onetrust-group-container"))
-        )
-    except TimeoutException:
-        pass
+        logger.info(f"Starting scrape for {scrape_link}")
+        driver.get(scrape_link)
+        days_button: WebElement = driver.find_element(By.CLASS_NAME, "sevenDays")
+        days_button.click()
+        try:
+            WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.ID, "onetrust-reject-all-handler"))
+            )
+            logger.info("Found reject button in HKX, clicking.")
+            driver.find_element(By.ID, "onetrust-reject-all-handler").click()
+            WebDriverWait(driver, 5).until(
+                EC.invisibility_of_element_located((By.ID, "onetrust-group-container"))
+            )
+        except TimeoutException:
+            pass
 
-    more_button: WebElement = driver.find_element(By.CSS_SELECTOR, ".component-loadmore__link.component-loadmore__icon")
-    WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable(more_button)
-    )
-    more_button.click()
-
-    try:
+        cutoff_date: datetime = datetime.now() - timedelta(hours=36)
+        last_datetime: datetime|None = None
         logger.info(f"Waiting for element presence in {scrape_link}")
         WebDriverWait(driver, 60).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr > td"))
         )
         logger.info(f"Retrieving announcements for {scrape_link}")
-        announcements: list[WebElement] = driver.find_elements(By.CSS_SELECTOR, "tbody > tr")
+        announcements: list[WebElement] = []
+        num_last_announcements: int = len(announcements)
+        def rows_finished_loading(webdriver: WebDriver) -> bool:
+            return not webdriver.find_elements(
+                By.CSS_SELECTOR, ".loading, .spinner, [aria-busy='true']"
+            )
+
+        while last_datetime is None or last_datetime > cutoff_date:
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            try:
+                more_button: WebElement | None = WebDriverWait(driver, 1).until(
+                    EC.element_to_be_clickable(
+                        (By.CSS_SELECTOR, ".component-loadmore__link.component-loadmore__icon")
+                    )
+                )
+            except TimeoutException:
+                more_button = None
+            if more_button is not None:
+                more_button.click()
+            WebDriverWait(driver, 60).until(rows_finished_loading)
+            announcements = driver.find_elements(By.CSS_SELECTOR, "tbody > tr")
+            announcement_details: list[WebElement] = announcements[-1].find_elements(
+                By.TAG_NAME,
+                "td"
+            )
+            announcement_datetime: datetime = datetime.strptime(
+                announcement_details[0].text,
+                "%d/%m/%Y %H:%M"
+            )
+
+            if announcement_datetime != last_datetime or len(announcements) > num_last_announcements:
+                last_datetime = announcement_datetime
+                num_last_announcements = len(announcements)
+            else:
+                break
+
         logger.info(f"Found {len(announcements)} announcements, parsing...")
+
         for announcement in announcements:
             # Get link for announcement content
             announcement_details: list[WebElement] = announcement.find_elements(
@@ -84,7 +116,7 @@ def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
                 write_info_to_csv(news_info)
 
             count += 1
-        logger.info(f"Done scraping HKX, scraped total of {count} announcements")
+            logger.info(f"Done scraping HKX, scraped total of {count} announcements")
     finally:
         driver.quit()
 
