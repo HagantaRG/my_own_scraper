@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 PROJECT_FOLDER: Path = Path(__file__).parent.parent.parent
 LOGS_FOLDER: Path = Path(f"{PROJECT_FOLDER}/logs")
 SETTINGS_FOLDER: Path = Path(f"{PROJECT_FOLDER}/settings")

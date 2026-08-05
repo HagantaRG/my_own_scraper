@@ -1,18 +1,15 @@
 import logging
 from collections.abc import Callable
-from threading import Thread, Event
+from threading import Event, Thread
 from time import sleep
 
 from schedule import run_pending
 
 
-def run_threaded(
-        job_func: Callable,
-        *args,
-        **kwargs
-):
+def run_threaded(job_func: Callable, *args, **kwargs):
     job_thread = Thread(target=job_func, args=args, kwargs=kwargs, daemon=True)
     job_thread.start()
+
 
 def run_continuously(interval=1):
     """Continuously run, while executing pending jobs at each
@@ -26,6 +23,7 @@ def run_continuously(interval=1):
     at each interval but only once.
     """
     stopper_event = Event()
+
     class ScheduleThread(Thread):
         @classmethod
         def run(cls):

@@ -3,12 +3,16 @@ from datetime import datetime
 
 from dateutil import parser
 
-from src.utils.filepaths import DATA_FOLDER
 from src.scrapers.google_scrape import SearchResult
+from src.utils.filepaths import DATA_FOLDER
 
-csv_headers: list[str] = ["link","title","date","keywords","retrieved_at"]
+csv_headers: list[str] = ["link", "title", "date", "keywords", "retrieved_at"]
+
+
 def construct_webscraper_email() -> str:
-    with open(f"{DATA_FOLDER}/news_data.csv", "r", newline="", encoding='utf-8') as csvfile:
+    with open(
+        f"{DATA_FOLDER}/news_data.csv", "r", newline="", encoding="utf-8"
+    ) as csvfile:
         email_html: str = """
         <html>
             <head></head>
@@ -33,13 +37,14 @@ def construct_webscraper_email() -> str:
         for sites in site_dict.keys():
             email_html += f"<h2>{sites}</h2>"
             for site_data in site_dict[sites]:
-                email_html += f"<a href=\"{site_data[0]}\">{site_data[1]}</a> - found keyword(s) {site_data[3]}<br>\n"
+                email_html += f'<a href="{site_data[0]}">{site_data[1]}</a> - found keyword(s) {site_data[3]}<br>\n'
         email_html += """
                 </p>
             </body>
         </html>
         """
         return email_html
+
 
 def construct_search_email(results: dict[str, list[SearchResult]]) -> str:
     email_html: str = """
@@ -52,7 +57,7 @@ def construct_search_email(results: dict[str, list[SearchResult]]) -> str:
     for search_term in results.keys():
         email_html += f"<h2>{search_term}</h2>"
         for search_results in results[search_term]:
-            email_html += f"<a href=\"{search_results.res_link}\">{search_results.header_text}</a><br>\n"
+            email_html += f'<a href="{search_results.res_link}">{search_results.header_text}</a><br>\n'
     email_html += """
                     </p>
                 </body>
