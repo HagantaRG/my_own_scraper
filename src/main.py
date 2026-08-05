@@ -63,7 +63,7 @@ try:
                     every().day.at("09:00").do(run_threaded, orchestrator.orchestrate_exchange_scrape)
                 )
                 google_scrape_schedule = (
-                    every().day.at("09:00").do(run_threaded, orchestrator.orchestrate_google_scrape())
+                    every().day.at("09:00").do(run_threaded, orchestrator.orchestrate_google_scrape)
                 )
                 logger.info("9AM scrapes scheduled.")
                 stop_event: Event = run_continuously()
