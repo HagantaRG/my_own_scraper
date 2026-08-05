@@ -61,9 +61,20 @@ class ScrapeOrchestrator:
     def _retrieve_settings(self):
         self._retrieve_google_client()
         # Load settings, in case any changes since last run
-        settings_toml: toml_reader.Toml = Toml(Path(f"{SETTINGS_FOLDER}/settings.toml"))
-        logging.info(f"Loaded settings from {SETTINGS_FOLDER}/settings.toml")
+        settings_path = Path(SETTINGS_FOLDER) / "settings.toml"
+        settings_toml: toml_reader.Toml = Toml(settings_path)
+        logging.info(
+            "Loading settings from %s (exists=%s)",
+            settings_path.resolve(),
+            settings_path.exists(),
+        )
         self.email_settings = settings_toml.load("email-settings")
+        logging.info(
+            "Loaded email settings keys: %s; admin present=%s; admin value type=%s",
+            list(self.email_settings.keys()),
+            "admin" in self.email_settings,
+            type(self.email_settings.get("admin")).__name__,
+        )
         keyword_settings: dict[str, str | list] = settings_toml.load("keyword-document")
         self.keywords_sheet_id = keyword_settings["sheet-id"]
         self._retrieve_keywords_csv()
