@@ -50,7 +50,7 @@ try:
                     "google-scrape: Only runs the google scraper."
                 )
             case "test-run":
-                run_threaded(orchestrator.orchestrate, test_mode=True)
+                run_threaded(orchestrator.orchestrate_exchange_scrape, test_mode=True)
             case "standard-schedule":
                 # The way this works is that there is one long-running thread that exists for the scheduler
                 # and *that* thread will spin up another daemon thread for the daily scrape jobs.
@@ -60,12 +60,15 @@ try:
                     "Cleared any existing jobs, cleared previously existing schedulers."
                 )
                 stock_scrape_schedule = (
-                    every().day.at("09:00").do(run_threaded, orchestrator.orchestrate)
+                    every().day.at("09:00").do(run_threaded, orchestrator.orchestrate_exchange_scrape)
+                )
+                google_scrape_schedule = (
+                    every().day.at("09:00").do(run_threaded, orchestrator.orchestrate_google_scrape())
                 )
                 logger.info("9AM scrapes scheduled.")
                 stop_event: Event = run_continuously()
             case "single-scrape":
-                run_threaded(orchestrator.orchestrate)
+                run_threaded(orchestrator.orchestrate_exchange_scrape)
             case "single-site":
                 site_code: str = input(
                     "bursa_my: The Malaysian stock exchange website.\n"
@@ -80,10 +83,10 @@ try:
                     print("Invalid site code.")
                 else:
                     run_threaded(
-                        orchestrator.orchestrate, test_mode=True, target_site=site_code
+                        orchestrator.orchestrate_exchange_scrape, test_mode=True, target_site=site_code
                     )
             case "google-scrape":
-                run_threaded(orchestrator.run_google_scrape)
+                run_threaded(orchestrator.orchestrate_google_scrape)
             case _:
                 print("Invalid command.")
         sleep(0.5)

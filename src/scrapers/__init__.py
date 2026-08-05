@@ -81,7 +81,7 @@ class ScrapeOrchestrator:
         self.keywords_sheet_id = keyword_settings["sheet-id"]
         self._retrieve_keywords_csv()
 
-    def run_google_scrape(self) -> None:
+    def orchestrate_google_scrape(self) -> None:
         tries: int = 0
         exc: Exception = Exception()
         start_time: datetime = datetime.now(GMT_PLUS_7)
@@ -205,7 +205,7 @@ class ScrapeOrchestrator:
         )
         return
 
-    def orchestrate(self, test_mode: bool = False, target_site: str = ...) -> None:
+    def orchestrate_exchange_scrape(self, test_mode: bool = False, target_site: str = ...) -> None:
         self._retrieve_settings()
 
         # Loop through scraping functions and run, logging successes vs failures
@@ -239,7 +239,3 @@ class ScrapeOrchestrator:
             password=self.email_settings["password"],
         )
 
-        self.run_google_scrape()
-
-        if test_mode:
-            logger.info("Test run carried out without unhandled errors.")

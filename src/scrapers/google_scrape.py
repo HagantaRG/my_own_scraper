@@ -3,6 +3,7 @@ import urllib.parse
 from collections.abc import Generator
 from datetime import datetime, timedelta, timezone
 from time import sleep
+import random
 
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.by import By
@@ -60,11 +61,14 @@ def run_search(
         current_html: str = driver.find_element(By.XPATH, "//body").get_attribute(
             "outerHTML"
         )
+        tries: int = 0
         while "captcha" in current_html:
+            delay = min(60, 2 * tries)
+            captcha_wait: float = random.uniform(delay * 0.5, delay)
             logger.info(
-                "Captcha detected in current HTML, waiting 10 seconds and retrying."
+                f"Captcha detected in current HTML, waiting {captcha_wait} seconds and retrying."
             )
-            sleep(10)
+            sleep(captcha_wait)
             driver.get(encoded_query)
             current_html: str = driver.find_element(By.XPATH, "//body").get_attribute(
                 "outerHTML"
