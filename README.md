@@ -40,22 +40,11 @@ writes made by concurrent scraper threads.
 The separate Google workflow searches Google News using terms from the same
 keyword spreadsheet. Matching search results are formatted directly into an
 email report.
-
-At a high level, a run performs these stages:
-
-1. Load email and keyword-document settings.
-2. Authenticate with Google using a service account.
-3. Download the latest keyword spreadsheet as CSV.
-4. Run the requested exchange or Google scrapers.
-5. Retry supported browser, network, and page-format failures.
-6. Build and send an HTML email summary.
-7. Remove temporary files and retain diagnostic logs.
-
 ---
 
 ## Requirements
 
-- Python 3.12 or newer, but earlier than Python 4.0
+- Python 3.12 or newer
 - [Poetry](https://python-poetry.org/) for dependency management
 - A locally available Chrome/Chromium-compatible browser for SeleniumBase
 - A Google Cloud service account with read access to the keyword spreadsheet
@@ -150,35 +139,6 @@ temporary paths.
 
 Temporary run directories are removed at the end of their corresponding
 workflow. Log files rotate at midnight, with up to ten backups retained.
-
----
-
-## Failure handling
-
-Individual scraper operations retry supported Selenium, network timeout, and
-unexpected page-format failures. A failed exchange scraper is recorded in the
-batch result while the other exchange jobs continue. The final email identifies
-failed jobs when applicable. Repeated Google failures trigger an administrator
-notification.
-
-Detailed exceptions are written to the log, while the CLI presents shorter
-status messages for setup, scraping, retries, email delivery, and cleanup.
-
----
-
-## Project structure
-
-```text
-src/
-|-- main.py                    CLI entry point and scheduler setup
-|-- scrapers/
-|   |-- __init__.py           Retry and orchestration logic
-|   |-- exchange_scrapers.py  Exchange-specific Selenium scrapers
-|   `-- google_scrape.py      Google News scraper
-|-- gmail_client/             Google Sheets CSV export client
-|-- smtp_functions/           Gmail SMTP delivery
-`-- utils/                    CLI, CSV, email, path, and threading helpers
-```
 
 ---
 
