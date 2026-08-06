@@ -44,7 +44,7 @@ def _run_with_retries[ResultT](
             logger.info(f"Running {job_name}, attempt {tries}")
             print(f"Running {job_name} (attempt {tries}/{max_tries})...")
             return operation()
-        except WebDriverException as exc:
+        except (WebDriverException, ReadTimeoutError) as exc:
             logger.exception(
                 f"{job_name} attempt {tries}/{max_tries} failed with a {type(exc).__name__} error",
             )
@@ -225,7 +225,7 @@ class ScrapeOrchestrator:
             failed_jobs: list[str] = []
             for a in dir(scrapers):
                 item = getattr(scrapers, a)
-                if callable(item) and a.startswith("scrape_"):
+                if isinstance(item, Callable) and a.startswith("scrape_"):
                     job_name: str = a.title()
                     try:
                         _run_scrape_job(
