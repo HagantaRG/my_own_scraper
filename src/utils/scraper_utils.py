@@ -23,9 +23,7 @@ def check_link_parsed_csv(news: NewsInformation) -> bool:
     file_exists: bool = path.isfile(f"{DATA_FOLDER}/news_data.csv")
     if not file_exists:
         return False
-    with open(
-        f"{DATA_FOLDER}/news_data.csv", "r", newline="", encoding="utf-8"
-    ) as csvfile:
+    with open(f"{DATA_FOLDER}/news_data.csv", newline="", encoding="utf-8") as csvfile:
         reader = csv.DictReader(csvfile, fieldnames=news_data_headers)
         for row in reader:
             if row["link"] == news.news_link and row["title"] == news.news_title:
@@ -106,10 +104,9 @@ def check_run_done(news: NewsInformation) -> bool:
             "Announcement older than 1 day, 12 hours. Done looking through latest announcements, scrape finished."
         )
         return True
-    elif check_link_parsed_csv(news):
+    if check_link_parsed_csv(news):
         logger.info(
             f"Reached an already-parsed announcement at {news.news_link} Done looking through latest announcements, scrape finished."
         )
         return True
-    else:
-        return False
+    return False

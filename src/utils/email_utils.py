@@ -11,9 +11,7 @@ GMT_PLUS_7 = timezone(timedelta(hours=7))
 
 
 def construct_webscraper_email() -> str:
-    with open(
-        f"{DATA_FOLDER}/news_data.csv", "r", newline="", encoding="utf-8"
-    ) as csvfile:
+    with open(f"{DATA_FOLDER}/news_data.csv", newline="", encoding="utf-8") as csvfile:
         email_html: str = """
         <html>
             <head></head>

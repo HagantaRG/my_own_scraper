@@ -44,7 +44,7 @@ class ScrapeOrchestrator:
         )
         logger.info("Retrieved CSV.")
         sheet_dict: dict[str, list[str]] = {}
-        with open(sheet_paths[0], "r", encoding="utf-8") as csv_file:
+        with open(sheet_paths[0], encoding="utf-8") as csv_file:
             csv_reader: DictReader = DictReader(csv_file, delimiter=",")
             for field in csv_reader.fieldnames:
                 sheet_dict[field] = []
@@ -52,8 +52,7 @@ class ScrapeOrchestrator:
                 for field in csv_reader.fieldnames:
                     if row[field] == "":
                         continue
-                    else:
-                        sheet_dict[field].append(str(row[field]).upper())
+                    sheet_dict[field].append(str(row[field]).upper())
         logger.info(f"Keywords: {sheet_dict}")
         self.keywords_sheet = sheet_dict
 
@@ -205,7 +204,9 @@ class ScrapeOrchestrator:
         )
         return
 
-    def orchestrate_exchange_scrape(self, test_mode: bool = False, target_site: str = ...) -> None:
+    def orchestrate_exchange_scrape(
+        self, test_mode: bool = False, target_site: str = ...
+    ) -> None:
         self._retrieve_settings()
 
         # Loop through scraping functions and run, logging successes vs failures
@@ -238,4 +239,3 @@ class ScrapeOrchestrator:
             else self.email_settings["admin"],
             password=self.email_settings["password"],
         )
-

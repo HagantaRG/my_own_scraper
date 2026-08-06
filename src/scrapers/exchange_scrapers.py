@@ -316,7 +316,7 @@ def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
                 )
                 # This date extraction is because the Shenzhen stock exchange for some reason uses *TWO* datetime formats.
                 announcement_date: datetime = datetime.strptime(
-                    date_text.split(" ")[0], "%Y-%m-%d"
+                    date_text.split(" ", maxsplit=1)[0], "%Y-%m-%d"
                 ).replace(tzinfo=SHENZHEN_TIME)
                 for file in announcement_files:
                     count += 1
@@ -356,13 +356,12 @@ def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
             if "last" in this_page.get_attribute("class"):
                 logger.info("Last page of SZSE reached. Ending.")
                 break
-            else:
-                logger.info(
-                    f"Not at end of relevant announcements for SZSE after {count} docs scraped, going to next page."
-                )
-                page_num += 1
-                paginator.find_element(By.CSS_SELECTOR, ".next > a").click()
-                WebDriverWait(driver, 30).until(EC.staleness_of(announcements[1]))
+            logger.info(
+                f"Not at end of relevant announcements for SZSE after {count} docs scraped, going to next page."
+            )
+            page_num += 1
+            paginator.find_element(By.CSS_SELECTOR, ".next > a").click()
+            WebDriverWait(driver, 30).until(EC.staleness_of(announcements[1]))
     finally:
         driver.quit()
 

@@ -1,9 +1,9 @@
 import logging
+import random
 import urllib.parse
 from collections.abc import Generator
 from datetime import datetime, timedelta, timezone
 from time import sleep
-import random
 
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.by import By

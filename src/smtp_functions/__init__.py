@@ -34,10 +34,9 @@ def send_email(
                     f"Error encountered in email sending {max_tries} times. Emails have NOT been sent."
                 )
                 return
-            else:
-                logger.info(
-                    f"Network encountered during email sending try number {tries}, trying up to 5 times."
-                )
-                logger.info(network_error)
-                sleep(1)
+            logger.info(
+                f"Network encountered during email sending try number {tries}, trying up to 5 times."
+            )
+            logger.info(network_error)
+            sleep(1)
     return

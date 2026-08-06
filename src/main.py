@@ -1,6 +1,6 @@
 # Python libs
 import logging
-import sys
+from logging.handlers import TimedRotatingFileHandler
 from os import makedirs
 from threading import Event
 from time import sleep
@@ -21,11 +21,11 @@ This should be the main thing that orchestrates all the scrapers and various oth
 
 log_file: str = f"{LOGS_FOLDER}/scraper.log"
 makedirs(f"{LOGS_FOLDER}", exist_ok=True)
+rotating_handler: TimedRotatingFileHandler = TimedRotatingFileHandler(
+    filename=log_file, encoding="utf-8", when="midnight", backupCount=10
+)
 logging.basicConfig(
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler(filename=log_file, encoding="utf-8"),
-    ],
+    handlers=[rotating_handler],
     level=logging.INFO,
     format="[%(asctime)s] - %(filename)s:%(lineno)s - %(funcName)10s() - %(levelname)s - %(message)s ",
     datefmt="%m/%d/%Y %I:%M:%S %p",
@@ -60,10 +60,14 @@ try:
                     "Cleared any existing jobs, cleared previously existing schedulers."
                 )
                 stock_scrape_schedule = (
-                    every().day.at("09:00").do(run_threaded, orchestrator.orchestrate_exchange_scrape)
+                    every()
+                    .day.at("09:00")
+                    .do(run_threaded, orchestrator.orchestrate_exchange_scrape)
                 )
                 google_scrape_schedule = (
-                    every().day.at("09:00").do(run_threaded, orchestrator.orchestrate_google_scrape)
+                    every()
+                    .day.at("09:00")
+                    .do(run_threaded, orchestrator.orchestrate_google_scrape)
                 )
                 logger.info("9AM scrapes scheduled.")
                 stop_event: Event = run_continuously()
@@ -83,7 +87,9 @@ try:
                     print("Invalid site code.")
                 else:
                     run_threaded(
-                        orchestrator.orchestrate_exchange_scrape, test_mode=True, target_site=site_code
+                        orchestrator.orchestrate_exchange_scrape,
+                        test_mode=True,
+                        target_site=site_code,
                     )
             case "google-scrape":
                 run_threaded(orchestrator.orchestrate_google_scrape)
@@ -92,5 +98,12 @@ try:
         sleep(0.5)
 
 except KeyboardInterrupt:
+    print("Keyboard interrupt detected, breaking.")
+except Exception as e:
+    print(e)
+    logging.exception(e)
+    raise
+finally:
     stop_event.set()
+    logging.shutdown()
     print("Program execution stopped. Cleared schedulers.")

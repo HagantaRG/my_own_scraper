@@ -6,9 +6,8 @@ This module provides the means to load settings from TOML configuration files.
 from collections.abc import Callable
 from datetime import date, datetime, time
 from pathlib import Path
-from typing import Any, Final
-
 from tomllib import TOMLDecodeError, load
+from typing import Any, Final
 
 # Define types
 type Primitive = bool | date | datetime | float | int | str | time
