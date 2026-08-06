@@ -87,7 +87,10 @@ http-client.private.env.json
 .idea/**/copilot.data.migration.*.xml
 
 # ------------------------------------------------------
-settings/
+# Local settings contain credentials. Keep only the safe templates in Git.
+settings/*
+!settings/settings.example.toml
+!settings/service_credentials.example.json
 logs/
 NewsScraper/
 downloaded_files/

@@ -77,7 +77,15 @@ poetry install
 
 ## Configuration
 
-Create `settings/settings.toml` with the following structure:
+Copy the supplied settings templates:
+
+```powershell
+Copy-Item settings/settings.example.toml settings/settings.toml
+Copy-Item settings/service_credentials.example.json settings/service_credentials.json
+```
+
+Then replace the placeholder values in both copied files. The application
+settings use the following structure:
 
 ```toml
 [email-settings]
