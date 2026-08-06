@@ -66,7 +66,7 @@ def run_search(
             delay = min(60, 2 * tries)
             captcha_wait: float = random.uniform(delay * 0.5, delay)
             logger.info(
-                f"Captcha detected in current HTML, waiting {captcha_wait} seconds and retrying."
+                f"Captcha detected in current HTML, waiting {int(captcha_wait)} seconds and retrying."
             )
             sleep(captcha_wait)
             driver.get(encoded_query)

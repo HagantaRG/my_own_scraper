@@ -3,7 +3,6 @@ import logging
 import shutil
 import traceback
 from collections.abc import Callable
-from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from csv import DictReader
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -17,15 +16,15 @@ from src.scrapers import exchange_scrapers as scrapers
 from src.scrapers.google_scrape import SearchResult, google_search_scrape
 from src.smtp_functions import send_email
 from src.utils import email_utils, toml_reader
-from src.utils.filepaths import SETTINGS_FOLDER, TEMP_FOLDER
-from src.utils.scraper_utils import write_run_error_to_csv, write_run_to_csv
+from src.utils.filepaths import PROJECT_FOLDER, SETTINGS_FOLDER
 from src.utils.toml_reader import Toml
 
 logger = logging.getLogger(__name__)
 GMT_PLUS_7 = timezone(timedelta(hours=7))
 class UnexpectedPageFormatError(Exception):
     """Page was loaded, and all element exists, but some retrieved values did not match the expected format."""
-
+class ScrapeBatchError(Exception):
+    """Some jobs in a batch of scrapes failed."""
 
 def _run_scrape_job(
     job: Callable,
@@ -33,6 +32,8 @@ def _run_scrape_job(
     keywords_sheet: dict[str, list[str]],
     max_tries: int
 ) -> bool:
+    if max_tries < 1:
+        raise ValueError("max_tries must be at least 1")
     tries: int = 0
     start_time: datetime = datetime.now(GMT_PLUS_7)
     while tries < max_tries:
@@ -45,41 +46,78 @@ def _run_scrape_job(
             logger.info(
                 f"{job_name} scrape completed! Took {scrape_time.total_seconds()} seconds"
             )
-            write_run_to_csv(
-                job_name=job_name,
-                start_time=start_time,
-                end_time=end_time,
-                duration=scrape_time,
-            )
             return True
         except WebDriverException as exc:
+            logger.exception(
+                f"{job_name} attempt {tries}/{max_tries} failed with a {type(exc).__name__}error",
+            )
             if tries < max_tries:
                 continue
-            raise exc
-        except (KeyError, ValueError, IndexError, TypeError) as exc:
+            raise
+        except (KeyError, ValueError, IndexError) as exc:
+            logger.exception(
+                f"{job_name} attempt {tries}/{max_tries} failed with a {type(exc).__name__}error",
+            )
             if tries < max_tries:
                 continue
-            raise UnexpectedPageFormatError(exc)
+            raise UnexpectedPageFormatError(
+                "Retrieved page did not match expected format"
+            ) from exc
     return False
 
+def _run_google_job(
+    job_name: str,
+    keywords_sheet: dict[str, list[str]],
+    max_tries: int
+) -> dict[str, list[SearchResult]]:
+    if max_tries < 1:
+        raise ValueError("max_tries must be at least 1")
+    start_time: datetime = datetime.now(GMT_PLUS_7)
+    tries: int = 0
+    while tries < max_tries:
+        try:
+            tries += 1
+            logger.info(f"Running {job_name}, attempt {tries}")
+            search_results = google_search_scrape(sheet_dict=keywords_sheet)
+            end_time: datetime = datetime.now(GMT_PLUS_7)
+            logger.info(f"Google scrape done, took {(end_time-start_time).total_seconds()} seconds")
+            return search_results
+        except WebDriverException as exc:
+            logger.exception(
+                f"{job_name} attempt {tries}/{max_tries} failed with a {type(exc).__name__}error",
+            )
+            if tries < max_tries:
+                continue
+            raise
+        except (KeyError, ValueError, IndexError) as exc:
+            logger.exception(
+                f"{job_name} attempt {tries}/{max_tries} failed with a {type(exc).__name__}error",
+            )
+            if tries < max_tries:
+                continue
+            raise UnexpectedPageFormatError(
+                "Retrieved page did not match expected format"
+            ) from exc
+    return {}
 
 class ScrapeOrchestrator:
     keywords_sheet: dict[str, list[str]] = ...
     email_settings: dict[str, str | list] = ...
     google_client: GoogleClient = ...
     keywords_sheet_id: str = ...
-    max_tries: int = 5
-
-    def __init__(self):
-        self._retrieve_settings()
-
-    def _retrieve_keywords_csv(
+    max_tries: int
+    temp_folder: Path
+    def __init__(
         self,
-    ) -> None:
+        max_tries: int = 5,
+    ):
+        self.max_tries = max_tries
+
+    def _retrieve_keywords_csv(self, temp_path: Path) -> None:
         logger.info("Retrieving keywords CSV.")
         sheet_paths: list[Path] = self.google_client.get_spreadsheet_as_csv(
             spreadsheet_id=self.keywords_sheet_id,
-            target_folder=TEMP_FOLDER,
+            target_folder=temp_path,
             sheet_name="keywords",
         )
         logger.info("Retrieved CSV.")
@@ -97,9 +135,9 @@ class ScrapeOrchestrator:
         self.keywords_sheet = sheet_dict
 
     def _retrieve_google_client(self) -> None:
-        self.google_client = GoogleClient(f"{SETTINGS_FOLDER}/service_credentials.json")
+        self.google_client = GoogleClient(f"{PROJECT_FOLDER}/service_credentials.json")
 
-    def _retrieve_settings(self):
+    def _retrieve_settings(self, temp_path: Path):
         self._retrieve_google_client()
         # Load settings, in case any changes since last run
         settings_path = Path(SETTINGS_FOLDER) / "settings.toml"
@@ -118,121 +156,88 @@ class ScrapeOrchestrator:
         )
         keyword_settings: dict[str, str | list] = settings_toml.load("keyword-document")
         self.keywords_sheet_id = keyword_settings["sheet-id"]
-        self._retrieve_keywords_csv()
+        self._retrieve_keywords_csv(temp_path=temp_path)
 
     def orchestrate_google_scrape(self) -> None:
-        tries: int = 0
-        exc: Exception = Exception()
-        start_time: datetime = datetime.now(GMT_PLUS_7)
+        temp_path: Path = Path(f"{SETTINGS_FOLDER}/temp-google")
+        self._retrieve_settings(temp_path)
         job_name: str = "GoogleScrape"
         search_results: dict[str, list[SearchResult]] = {}
-        while tries < self.max_tries:
+        try:
             try:
-                tries += 1
-                logger.info(f"Running {job_name}, attempt {tries}")
-                search_results = google_search_scrape(sheet_dict=self.keywords_sheet)
-                end_time: datetime = datetime.now(GMT_PLUS_7)
-                scrape_time: timedelta = end_time - start_time
-                logger.info(
-                    f"{job_name} scrape completed! Took {scrape_time.total_seconds()} seconds"
-                )
-                write_run_to_csv(
+                search_results = _run_google_job(
                     job_name=job_name,
-                    start_time=start_time,
-                    end_time=end_time,
-                    duration=scrape_time,
+                    keywords_sheet=self.keywords_sheet,
+                    max_tries=self.max_tries
                 )
-                break
-            except WebDriverException as exception:
-                logger.error(exception)
-                logger.error(traceback.format_exception(exception))
+            except (WebDriverException, UnexpectedPageFormatError) as exc:
                 logger.error(
-                    f"WebDriver error during scrape job {job_name}.\n This likely means the page format"
-                    f" has changed and code changes are required"
+                    f"Google scrape attempted {self.max_tries} times, ending attempts."
                 )
-                write_run_error_to_csv(
-                    job_name=job_name,
-                    start_time=start_time,
-                    error_message=f"{exception}\n{traceback.format_exception(exception)}",
+                send_email(
+                    subject=f"Repeated failure of {job_name}",
+                    body=f"{traceback.format_exception(exc)} \n {exc}",
+                    sender=self.email_settings["sender"],
+                    recipients=self.email_settings["admin"],
+                    password=self.email_settings["password"],
                 )
-                exc = exception
-            except Exception as exception:
-                # N.B. this generic retry is here because if there is an issue with the HTML of the page,
-                # e.g. if the page that is loaded has 1 less element than normal somewhere, it would cause a generic error.
-                # and I have no real way of differentiating it.
-                logger.error(exception)
-                logger.error(traceback.format_exception(exception))
-                logger.error("Generic error encountered during scrape job, retrying.")
-        else:
-            logger.error(
-                f"{job_name} scrape attempted {tries} times, ending attempts. Emailing admin."
-            )
-            send_email(
-                subject=f"Repeated failure of {job_name}",
-                body=f"{traceback.format_exception(exc)} \n {exc}",
-                sender=self.email_settings["sender"],
-                recipients=self.email_settings["admin"],
-                password=self.email_settings["password"],
-            )
-        if search_results != {}:
-            search_body: str = email_utils.construct_search_email(
-                results=search_results
-            )
-            search_subject: str = f"Relevant searches found for {datetime.now(GMT_PLUS_7).strftime('%Y-%m-%d')}"
-            send_email(
-                subject=search_subject,
-                body=search_body,
-                sender=self.email_settings["sender"],
-                recipients=self.email_settings["recipients"],
-                password=self.email_settings["password"],
-            )
+            if search_results:
+                search_body: str = email_utils.construct_search_email(
+                    results=search_results
+                )
+                search_subject: str = f"Relevant searches found for {datetime.now(GMT_PLUS_7).strftime('%Y-%m-%d')}"
+                send_email(
+                    subject=search_subject,
+                    body=search_body,
+                    sender=self.email_settings["sender"],
+                    recipients=self.email_settings["recipients"],
+                    password=self.email_settings["password"],
+                )
+            else:
+                raise ScrapeBatchError("Google scrape has failed.")
+        finally:
+            shutil.rmtree(temp_path, ignore_errors=True)
 
     def orchestrate_exchange_scrape(
-        self, test_mode: bool = False, max_workers: int = 3
+        self, test_mode: bool = False
     ) -> None:
-        self._retrieve_settings()
-        scrape_functions: dict[str, Callable] = {}
-        # Loop through scraping functions and run, logging successes vs failures
-
-        for a in dir(scrapers):
-            item = getattr(scrapers, a)
-            if callable(item) and a.startswith("scrape_"):
-                job_name: str = a.title()
-                scrape_functions[job_name] = item
-                try:
-                    _run_scrape_job(
-                        job=item,
-                        job_name=job_name,
-                        keywords_sheet=self.keywords_sheet,
-                        max_tries=self.max_tries
-                    )
-                except (WebDriverException, UnexpectedPageFormatError) as exc:
-                    logger.error(
-                        f"{a.title} scrape attempted {self.max_tries} times, ending attempts. Emailing admin."
-                    )
-                    send_email(
-                        subject=f"Repeated failure of {job_name}",
-                        body=f"{traceback.format_exception(exc)} \n {exc}",
-                        sender=self.email_settings["sender"],
-                        recipients=self.email_settings["admin"],
-                        password=self.email_settings["password"],
-                    )
-        # Delete temp directory post-scrape
-        logger.info("Done scraping, deleting temp directory.")
+        temp_path: Path = Path(f"{PROJECT_FOLDER}/temp-exchanges")
+        self._retrieve_settings(temp_path=temp_path)
         try:
-            shutil.rmtree(TEMP_FOLDER)
-        except OSError as e:
-            logger.error("Error: %s - %s.", e.filename, e.strerror)
+            # Loop through scraping functions and run, logging successes vs failures
+            failed_jobs: list[str] = []
+            for a in dir(scrapers):
+                item = getattr(scrapers, a)
+                if callable(item) and a.startswith("scrape_"):
+                    job_name: str = a.title()
+                    try:
+                        _run_scrape_job(
+                            job=item,
+                            job_name=job_name,
+                            keywords_sheet=self.keywords_sheet,
+                            max_tries=self.max_tries
+                        )
+                    except (WebDriverException, UnexpectedPageFormatError):
+                        logger.error(
+                            f"{job_name} scrape attempted {self.max_tries} times, ending attempts."
+                        )
+                        failed_jobs.append(job_name)
+            # Delete temp directory post-scrape
+            logger.info("Done scraping, deleting temp directory.")
 
-        # Done scraping, send notifs.
-        subject = f"Relevant articles found for {datetime.now(GMT_PLUS_7).strftime('%Y-%m-%d')}"
-        body = email_utils.construct_webscraper_email()
-        send_email(
-            subject=subject,
-            body=body,
-            sender=self.email_settings["sender"],
-            recipients=self.email_settings["recipients"]
-            if not test_mode
-            else self.email_settings["admin"],
-            password=self.email_settings["password"],
-        )
+            # Done scraping, send notifs.
+            subject = f"Relevant articles found for {datetime.now(GMT_PLUS_7).strftime('%Y-%m-%d')}"
+            body = email_utils.construct_webscraper_email(failed_jobs)
+            send_email(
+                subject=subject,
+                body=body,
+                sender=self.email_settings["sender"],
+                recipients=self.email_settings["recipients"]
+                if not test_mode
+                else self.email_settings["admin"],
+                password=self.email_settings["password"],
+            )
+            if failed_jobs:
+                raise ScrapeBatchError(failed_jobs)
+        finally:
+            shutil.rmtree(temp_path, ignore_errors=True)

@@ -10,13 +10,14 @@ csv_headers: list[str] = ["link", "title", "date", "keywords", "retrieved_at"]
 GMT_PLUS_7 = timezone(timedelta(hours=7))
 
 
-def construct_webscraper_email() -> str:
+def construct_webscraper_email(failed_jobs: list[str]) -> str:
     with open(f"{DATA_FOLDER}/news_data.csv", newline="", encoding="utf-8") as csvfile:
-        email_html: str = """
+        email_html: str = f"""
         <html>
             <head></head>
             <body>
                 <h1>Stock Exchange Daily Webscraper</h1>\n
+                <p> Please note that the following jobs failed: {failed_jobs}<\p>\n
                 <p>Please find below the relevant articles found today:<br>\n
         """
         reader: csv.DictReader = csv.DictReader(csvfile, fieldnames=csv_headers)

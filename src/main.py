@@ -1,5 +1,6 @@
 # Python libs
 import logging
+import sys
 from logging.handlers import TimedRotatingFileHandler
 from os import makedirs
 from threading import Event
@@ -24,8 +25,11 @@ makedirs(f"{LOGS_FOLDER}", exist_ok=True)
 rotating_handler: TimedRotatingFileHandler = TimedRotatingFileHandler(
     filename=log_file, encoding="utf-8", when="midnight", backupCount=10
 )
+stdout_handler: logging.StreamHandler = logging.StreamHandler(sys.stdout)
+stdout_handler.setLevel(logging.WARNING)
+
 logging.basicConfig(
-    handlers=[rotating_handler],
+    handlers=[rotating_handler, stdout_handler],
     level=logging.INFO,
     format="[%(asctime)s] - %(filename)s:%(lineno)s - %(funcName)10s() - %(levelname)s - %(message)s ",
     datefmt="%m/%d/%Y %I:%M:%S %p",
@@ -46,7 +50,6 @@ try:
                     "test-run: Carries out a one-off run of the *whole* scraper, emailing only the admins.\n"
                     "standard-schedule: Standard scheduled scraper, running at 9:00 AM local time every day.\n"
                     "single-scrape: Runs the scraper once. Does not schedule anything.\n"
-                    "single-site: Scrapes one of the supported websites. Available codes will be displayed on selection."
                     "google-scrape: Only runs the google scraper."
                 )
             case "test-run":
@@ -73,24 +76,6 @@ try:
                 stop_event: Event = run_continuously()
             case "single-scrape":
                 run_threaded(orchestrator.orchestrate_exchange_scrape)
-            case "single-site":
-                site_code: str = input(
-                    "bursa_my: The Malaysian stock exchange website.\n"
-                    "szse: The Shenzhen stock exchange website.\n"
-                    "sse: The Shanghai stock exchange website.\n"
-                    "sgx: The Singaporean stock exchange website.\n"
-                    "hkx: The Hong Kong stock exchange website.\n"
-                )
-                site_code = site_code.strip()
-                site_list: list[str] = ["bursa_my", "szse", "sgx", "hkx", "sse"]
-                if site_code not in site_list:
-                    print("Invalid site code.")
-                else:
-                    run_threaded(
-                        orchestrator.orchestrate_exchange_scrape,
-                        test_mode=True,
-                        target_site=site_code,
-                    )
             case "google-scrape":
                 run_threaded(orchestrator.orchestrate_google_scrape)
             case _:
@@ -101,7 +86,7 @@ except KeyboardInterrupt:
     print("Keyboard interrupt detected, breaking.")
 except Exception as e:
     print(e)
-    logging.exception(e)
+    logger.exception(e)
     raise
 finally:
     stop_event.set()
