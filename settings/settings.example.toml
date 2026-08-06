@@ -1,0 +1,11 @@
+# Copy this file to settings.toml and replace every placeholder value.
+# Never commit settings.toml because it contains email credentials.
+
+[email-settings]
+sender = "sender@gmail.com"
+recipients = ["recipient@example.com"]
+admin = ["admin@example.com"]
+password = "gmail-app-password"
+
+[keyword-document]
+sheet-id = "google-spreadsheet-id"
