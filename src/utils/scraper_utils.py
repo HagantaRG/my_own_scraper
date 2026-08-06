@@ -3,13 +3,17 @@ import logging
 from datetime import datetime, timedelta, timezone
 from os import makedirs, path
 
+from filelock import FileLock
+
 from src.utils.filepaths import DATA_FOLDER
 from src.utils.news_utils import NewsInformation
 
 logger = logging.getLogger(__name__)
 GMT_PLUS_7 = timezone(timedelta(hours=7))
-news_data_headers: list[str] = ["link", "title", "date", "keywords", "retrieved_at"]
-run_data_headers: list[str] = [
+NEWS_DATA_PATH = f"{DATA_FOLDER}/news_data.csv"
+NEWS_DATA_LOCK_PATH = f"{NEWS_DATA_PATH}.lock"
+NEWS_DATA_HEADERS: list[str] = ["link", "title", "date", "keywords", "retrieved_at"]
+RUN_DATA_HEADERS: list[str] = [
     "job_name",
     "start_time",
     "end_time",
@@ -20,11 +24,14 @@ run_data_headers: list[str] = [
 
 
 def check_link_parsed_csv(news: NewsInformation) -> bool:
-    file_exists: bool = path.isfile(f"{DATA_FOLDER}/news_data.csv")
-    if not file_exists:
+    if not path.isfile(NEWS_DATA_PATH):
         return False
-    with open(f"{DATA_FOLDER}/news_data.csv", newline="", encoding="utf-8") as csvfile:
-        reader = csv.DictReader(csvfile, fieldnames=news_data_headers)
+    with open(
+        NEWS_DATA_PATH,
+        newline="",
+        encoding="utf-8"
+    ) as csvfile:
+        reader = csv.DictReader(csvfile, fieldnames=NEWS_DATA_HEADERS)
         for row in reader:
             if row["link"] == news.news_link and row["title"] == news.news_title:
                 return True
@@ -33,10 +40,13 @@ def check_link_parsed_csv(news: NewsInformation) -> bool:
 
 def write_info_to_csv(info: NewsInformation) -> None:
     makedirs(f"{DATA_FOLDER}", exist_ok=True)
-    with open(
-        f"{DATA_FOLDER}/news_data.csv", "a", newline="", encoding="utf-8"
+    with FileLock(NEWS_DATA_LOCK_PATH), open(
+        NEWS_DATA_PATH,
+        "a",
+        newline="",
+        encoding="utf-8"
     ) as csvfile:
-        writer = csv.DictWriter(csvfile, delimiter=",", fieldnames=news_data_headers)
+        writer = csv.DictWriter(csvfile, delimiter=",", fieldnames=NEWS_DATA_HEADERS)
         keyword_string: str = ""
 
         if len(info.relevant_keywords) > 0:
@@ -56,47 +66,6 @@ def write_info_to_csv(info: NewsInformation) -> None:
             )
         else:
             logger.info(f"Link {info.news_link} already in CSV, not writing.")
-
-
-def write_run_to_csv(
-    job_name: str,
-    start_time: datetime,
-    end_time: datetime,
-    duration: timedelta,
-) -> None:
-    filename: str = f"{DATA_FOLDER}/run_data.csv"
-    makedirs(f"{DATA_FOLDER}", exist_ok=True)
-    with open(filename, "a", newline="", encoding="utf-8") as csvfile:
-        writer = csv.DictWriter(csvfile, delimiter=",", fieldnames=run_data_headers)
-        writer.writerow(
-            {
-                run_data_headers[0]: job_name,
-                run_data_headers[1]: start_time,
-                run_data_headers[2]: end_time,
-                run_data_headers[3]: duration,
-                run_data_headers[4]: True,
-            }
-        )
-
-
-def write_run_error_to_csv(
-    job_name: str, start_time: datetime, error_message: str
-) -> None:
-    with open(
-        f"{DATA_FOLDER}/run_data.csv", "a", newline="", encoding="utf-8"
-    ) as csvfile:
-        writer = csv.DictWriter(csvfile, delimiter=",", fieldnames=run_data_headers)
-        writer.writerow(
-            {
-                run_data_headers[0]: job_name,
-                run_data_headers[1]: start_time,
-                run_data_headers[2]: "ERROR",
-                run_data_headers[3]: "ERROR",
-                run_data_headers[4]: False,
-                run_data_headers[5]: error_message,
-            }
-        )
-
 
 def check_run_done(news: NewsInformation) -> bool:
     if datetime.now(GMT_PLUS_7) > news.news_date + timedelta(days=1, hours=12):

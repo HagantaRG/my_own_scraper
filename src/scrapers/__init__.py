@@ -3,7 +3,7 @@ import logging
 import shutil
 import traceback
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from csv import DictReader
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -30,6 +30,12 @@ class UnexpectedPageFormatError(Exception):
 
 class ScrapeBatchError(Exception):
     """Some jobs in a batch of scrapes failed."""
+
+ACCEPTABLE_EXCEPTIONS: tuple[type[Exception],...] = (
+    WebDriverException,
+    UnexpectedPageFormatError,
+    ReadTimeoutError
+)
 
 def _run_with_retries[ResultT](
         *,
@@ -115,6 +121,8 @@ class ScrapeOrchestrator:
     max_tries: int
     temp_folder: Path
 
+
+
     def __init__(
             self,
             max_tries: int = 5,
@@ -183,7 +191,7 @@ class ScrapeOrchestrator:
                     keywords_sheet=self.keywords_sheet,
                     max_tries=self.max_tries,
                 )
-            except (WebDriverException, UnexpectedPageFormatError) as exc:
+            except ACCEPTABLE_EXCEPTIONS as exc:
                 logger.error(
                     f"Google scrape attempted {self.max_tries} times, ending attempts."
                 )
@@ -215,7 +223,7 @@ class ScrapeOrchestrator:
             shutil.rmtree(temp_path, ignore_errors=True)
             print("Google scrape temporary files cleaned up.")
 
-    def orchestrate_exchange_scrape(self, test_mode: bool = False) -> None:
+    def orchestrate_exchange_scrape(self, test_mode: bool = False, max_workers: int = 3) -> None:
         mode = "test" if test_mode else "standard"
         print(f"Preparing the {mode} exchange scrape...")
         temp_path: Path = Path(f"{PROJECT_FOLDER}/temp-exchanges")
@@ -223,24 +231,30 @@ class ScrapeOrchestrator:
         try:
             # Loop through scraping functions and run, logging successes vs failures
             failed_jobs: list[str] = []
+            job_dict: dict[str, Callable] = {}
             for a in dir(scrapers):
                 item = getattr(scrapers, a)
                 if isinstance(item, Callable) and a.startswith("scrape_"):
-                    job_name: str = a.title()
+                    job_dict[a.title()] = item
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                job_futures: dict[Future, str] = {
+                    executor.submit(
+                        _run_scrape_job,
+                        job_dict[job_name],
+                        job_name,
+                        self.keywords_sheet,
+                        self.max_tries,
+                    ): job_name for job_name in job_dict
+                }
+                for future in as_completed(job_futures):
+                    job_name: str = job_futures[future]
                     try:
-                        _run_scrape_job(
-                            job=item,
-                            job_name=job_name,
-                            keywords_sheet=self.keywords_sheet,
-                            max_tries=self.max_tries,
-                        )
-                    except (WebDriverException, UnexpectedPageFormatError):
+                        future.result()
+                    except ACCEPTABLE_EXCEPTIONS:
                         logger.error(
                             f"{job_name} scrape attempted {self.max_tries} times, ending attempts."
                         )
                         failed_jobs.append(job_name)
-            # Delete temp directory post-scrape
-            logger.info("Done scraping, deleting temp directory.")
 
             # Done scraping, send notifs.
             print("Exchange scrapes finished; preparing the results email...")
