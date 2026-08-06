@@ -12,6 +12,7 @@ dependencies = [
     "requests~=2.33.1",
     "google-api-python-client~=2.198.0",
     "google-auth-httplib2~=0.4.0",
+    "black (>=26.5.1,<27.0.0)",
 ]
 
 [tool.poetry]
@@ -30,6 +31,8 @@ src = ["src"]
 
 # Enable the project-wide checks currently used during cleanup.
 lint.select = ["E", "F", "I", "UP", "SIM", "DTZ", "LOG", "RET", "BLE", "PL", "PIE", "C", "RUF"]
+lint.ignore = ["E501"]
+lint.per-file-ignores = { "src/scrapers/exchange_scrapers.py" = ["C901", "PLR0915"] }
 
 # Keep formatting and import optimization enabled through Ruff.
 format.quote-style = "double"

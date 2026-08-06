@@ -21,7 +21,8 @@ SINGAPORE_TIME = ZoneInfo("Asia/Singapore")
 KUALA_LUMPUR_TIME = ZoneInfo("Asia/Kuala_Lumpur")
 SHENZHEN_TIME = ZoneInfo("Asia/Shanghai")
 SHANGHAI_TIME = ZoneInfo("Asia/Shanghai")
-
+# Defines max retries for all retry-supporting steps.
+max_tries: int = 5
 
 def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
     keywords: list[str] = sheet_dict["keywords"]
@@ -383,7 +384,7 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
     logger.info("Clicking button to get last three days of info...")
     date_range_button: WebElement = driver.find_element(By.CLASS_NAME, "range_date")
     click_try: int = 0
-    while click_try < 3:
+    while click_try < max_tries:
         try:
             click_try += 1
             logger.debug(f"Clicking annoying button attempt {click_try}")

@@ -22,7 +22,7 @@ from src.utils.toml_reader import Toml
 
 logger = logging.getLogger(__name__)
 GMT_PLUS_7 = timezone(timedelta(hours=7))
-
+max_tries: int = 5
 
 class ScrapeOrchestrator:
     keywords_sheet: dict[str, list[str]] = ...
@@ -86,7 +86,7 @@ class ScrapeOrchestrator:
         start_time: datetime = datetime.now(GMT_PLUS_7)
         job_name: str = "GoogleScrape"
         search_results: dict[str, list[SearchResult]] = {}
-        while tries < 5:
+        while tries < max_tries:
             try:
                 tries += 1
                 logger.info(f"Running {job_name}, attempt {tries}")
@@ -155,7 +155,7 @@ class ScrapeOrchestrator:
         tries: int = 0
         exc: Exception = Exception()
         start_time: datetime = datetime.now(GMT_PLUS_7)
-        while tries < 5:
+        while tries < max_tries:
             try:
                 tries += 1
                 logger.info(f"Running {job_name}, attempt {tries}")
