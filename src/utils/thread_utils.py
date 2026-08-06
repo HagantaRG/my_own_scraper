@@ -25,14 +25,12 @@ def run_continuously(interval=1):
     at each interval but only once.
     """
     stopper_event = Event()
-
     class ScheduleThread(Thread):
         @classmethod
         def run(cls):
             while not stopper_event.is_set():
                 run_pending()
                 sleep(interval)
-
     background_scheduler = ScheduleThread(daemon=True)
     background_scheduler.start()
     logger.info("Background scheduler started.")

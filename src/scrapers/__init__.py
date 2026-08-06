@@ -3,6 +3,7 @@ import logging
 import shutil
 import traceback
 from collections.abc import Callable
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from csv import DictReader
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -22,13 +23,52 @@ from src.utils.toml_reader import Toml
 
 logger = logging.getLogger(__name__)
 GMT_PLUS_7 = timezone(timedelta(hours=7))
-max_tries: int = 5
+class UnexpectedPageFormatError(Exception):
+    """Page was loaded, and all element exists, but some retrieved values did not match the expected format."""
+
+
+def _run_scrape_job(
+    job: Callable,
+    job_name: str,
+    keywords_sheet: dict[str, list[str]],
+    max_tries: int
+) -> bool:
+    tries: int = 0
+    start_time: datetime = datetime.now(GMT_PLUS_7)
+    while tries < max_tries:
+        try:
+            tries += 1
+            logger.info(f"Running {job_name}, attempt {tries}")
+            job(keywords_sheet)
+            end_time: datetime = datetime.now(GMT_PLUS_7)
+            scrape_time: timedelta = end_time - start_time
+            logger.info(
+                f"{job_name} scrape completed! Took {scrape_time.total_seconds()} seconds"
+            )
+            write_run_to_csv(
+                job_name=job_name,
+                start_time=start_time,
+                end_time=end_time,
+                duration=scrape_time,
+            )
+            return True
+        except WebDriverException as exc:
+            if tries < max_tries:
+                continue
+            raise exc
+        except (KeyError, ValueError, IndexError, TypeError) as exc:
+            if tries < max_tries:
+                continue
+            raise UnexpectedPageFormatError(exc)
+    return False
+
 
 class ScrapeOrchestrator:
     keywords_sheet: dict[str, list[str]] = ...
     email_settings: dict[str, str | list] = ...
     google_client: GoogleClient = ...
     keywords_sheet_id: str = ...
+    max_tries: int = 5
 
     def __init__(self):
         self._retrieve_settings()
@@ -86,7 +126,7 @@ class ScrapeOrchestrator:
         start_time: datetime = datetime.now(GMT_PLUS_7)
         job_name: str = "GoogleScrape"
         search_results: dict[str, list[SearchResult]] = {}
-        while tries < max_tries:
+        while tries < self.max_tries:
             try:
                 tries += 1
                 logger.info(f"Running {job_name}, attempt {tries}")
@@ -147,79 +187,36 @@ class ScrapeOrchestrator:
                 password=self.email_settings["password"],
             )
 
-    def _run_scrape_job(
-        self,
-        job: Callable,
-        job_name: str,
-    ) -> None:
-        tries: int = 0
-        exc: Exception = Exception()
-        start_time: datetime = datetime.now(GMT_PLUS_7)
-        while tries < max_tries:
-            try:
-                tries += 1
-                logger.info(f"Running {job_name}, attempt {tries}")
-                job(self.keywords_sheet)
-                end_time: datetime = datetime.now(GMT_PLUS_7)
-                scrape_time: timedelta = end_time - start_time
-                logger.info(
-                    f"{job_name} scrape completed! Took {scrape_time.total_seconds()} seconds"
-                )
-                write_run_to_csv(
-                    job_name=job_name,
-                    start_time=start_time,
-                    end_time=end_time,
-                    duration=scrape_time,
-                )
-                return
-            except WebDriverException as exception:
-                logger.error(exception)
-                logger.error(traceback.format_exception(exception))
-                logger.error(
-                    f"WebDriver error during scrape job {job_name}.\n This likely means the page format"
-                    f" has changed and code changes are required"
-                )
-                write_run_error_to_csv(
-                    job_name=job_name,
-                    start_time=start_time,
-                    error_message=f"{exception}\n{traceback.format_exception(exception)}",
-                )
-                exc = exception
-            except Exception as exception:
-                # N.B. this generic retry is here because if there is an issue with the HTML of the page,
-                # e.g. if the page that is loaded has 1 less element than normal somewhere, it would cause a generic error.
-                # and I have no real way of differentiating it.
-                logger.error(exception)
-                logger.error(traceback.format_exception(exception))
-                logger.error("Generic error encountered during scrape job, retrying.")
-        logger.error(
-            f"{job_name} scrape attempted {tries} times, ending attempts. Emailing admin."
-        )
-        send_email(
-            subject=f"Repeated failure of {job_name}",
-            body=f"{traceback.format_exception(exc)} \n {exc}",
-            sender=self.email_settings["sender"],
-            recipients=self.email_settings["admin"],
-            password=self.email_settings["password"],
-        )
-        return
-
     def orchestrate_exchange_scrape(
-        self, test_mode: bool = False, target_site: str = ...
+        self, test_mode: bool = False, max_workers: int = 3
     ) -> None:
         self._retrieve_settings()
-
+        scrape_functions: dict[str, Callable] = {}
         # Loop through scraping functions and run, logging successes vs failures
+
         for a in dir(scrapers):
             item = getattr(scrapers, a)
-            if callable(item) and a.startswith("scrape_") and target_site is ...:
-                self._run_scrape_job(job=item, job_name=a.title())
-            elif target_site is not ... and target_site in a.title().lower():
-                logger.info(f"Running scrape for {target_site} website.")
-                self._run_scrape_job(
-                    job=item,
-                    job_name=a.title(),
-                )
+            if callable(item) and a.startswith("scrape_"):
+                job_name: str = a.title()
+                scrape_functions[job_name] = item
+                try:
+                    _run_scrape_job(
+                        job=item,
+                        job_name=job_name,
+                        keywords_sheet=self.keywords_sheet,
+                        max_tries=self.max_tries
+                    )
+                except (WebDriverException, UnexpectedPageFormatError) as exc:
+                    logger.error(
+                        f"{a.title} scrape attempted {self.max_tries} times, ending attempts. Emailing admin."
+                    )
+                    send_email(
+                        subject=f"Repeated failure of {job_name}",
+                        body=f"{traceback.format_exception(exc)} \n {exc}",
+                        sender=self.email_settings["sender"],
+                        recipients=self.email_settings["admin"],
+                        password=self.email_settings["password"],
+                    )
         # Delete temp directory post-scrape
         logger.info("Done scraping, deleting temp directory.")
         try:
