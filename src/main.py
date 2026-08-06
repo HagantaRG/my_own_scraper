@@ -53,6 +53,9 @@ try:
                     "google-scrape: Only runs the google scraper."
                 )
             case "test-run":
+                print(
+                    "Starting a one-off test scrape; results will be emailed to the admins."
+                )
                 run_threaded(orchestrator.orchestrate_exchange_scrape, test_mode=True)
             case "standard-schedule":
                 # The way this works is that there is one long-running thread that exists for the scheduler
@@ -73,10 +76,15 @@ try:
                     .do(run_threaded, orchestrator.orchestrate_google_scrape)
                 )
                 logger.info("9AM scrapes scheduled.")
+                print(
+                    "Daily exchange and Google scrapes are scheduled for 09:00 local time."
+                )
                 stop_event: Event = run_continuously()
             case "single-scrape":
+                print("Starting a one-off exchange scrape.")
                 run_threaded(orchestrator.orchestrate_exchange_scrape)
             case "google-scrape":
+                print("Starting a one-off Google scrape.")
                 run_threaded(orchestrator.orchestrate_google_scrape)
             case _:
                 print("Invalid command.")

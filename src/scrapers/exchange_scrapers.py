@@ -139,7 +139,7 @@ def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
                 write_info_to_csv(news_info)
 
             count += 1
-            logger.info(f"Done scraping HKX, scraped total of {count} announcements")
+        logger.info(f"Done scraping HKX, scraped total of {count} announcements")
     finally:
         driver.quit()
 

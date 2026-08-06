@@ -17,7 +17,7 @@ def construct_webscraper_email(failed_jobs: list[str]) -> str:
             <head></head>
             <body>
                 <h1>Stock Exchange Daily Webscraper</h1>\n
-                <p> Please note that the following jobs failed: {failed_jobs}<\p>\n
+                <p> Please note that the following jobs failed: {failed_jobs}</p>\n
                 <p>Please find below the relevant articles found today:<br>\n
         """
         reader: csv.DictReader = csv.DictReader(csvfile, fieldnames=csv_headers)
