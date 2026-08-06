@@ -11,6 +11,7 @@ from schedule import clear, every
 
 # Custom libs
 from src.scrapers import ScrapeOrchestrator
+from src.utils.cli_utils import print_cli, print_menu, print_section
 from src.utils.filepaths import LOGS_FOLDER
 from src.utils.thread_utils import run_continuously, run_threaded
 
@@ -38,22 +39,15 @@ orchestrator: ScrapeOrchestrator = ScrapeOrchestrator()
 
 stop_event: Event = Event()
 try:
+    print_menu()
     while True:
-        user_input: str = input(
-            'Awaiting user input for scraper. Please enter "help" to get a list of valid commands.\n'
-        )
+        user_input: str = input("\n[COMMAND] > ")
         user_input = user_input.strip()
         match user_input:
             case "help":
-                print(
-                    "Available commands:\n"
-                    "test-run: Carries out a one-off run of the *whole* scraper, emailing only the admins.\n"
-                    "standard-schedule: Standard scheduled scraper, running at 9:00 AM local time every day.\n"
-                    "single-scrape: Runs the scraper once. Does not schedule anything.\n"
-                    "google-scrape: Only runs the google scraper."
-                )
+                print_menu()
             case "test-run":
-                print(
+                print_cli(
                     "Starting a one-off test scrape; results will be emailed to the admins."
                 )
                 run_threaded(orchestrator.orchestrate_exchange_scrape, test_mode=True)
@@ -76,27 +70,32 @@ try:
                     .do(run_threaded, orchestrator.orchestrate_google_scrape)
                 )
                 logger.info("9AM scrapes scheduled.")
-                print(
-                    "Daily exchange and Google scrapes are scheduled for 09:00 local time."
+                print_cli(
+                    "Daily exchange and Google scrapes are scheduled for 09:00 local time.",
+                    "SCHEDULE",
                 )
                 stop_event: Event = run_continuously()
             case "single-scrape":
-                print("Starting a one-off exchange scrape.")
+                print_cli("Starting a one-off exchange scrape.")
                 run_threaded(orchestrator.orchestrate_exchange_scrape)
             case "google-scrape":
-                print("Starting a one-off Google scrape.")
+                print_cli("Starting a one-off Google scrape.")
                 run_threaded(orchestrator.orchestrate_google_scrape)
             case _:
-                print("Invalid command.")
+                print_cli(
+                    f'Unknown command: "{user_input}". Enter "help" for options.',
+                    "ERROR",
+                )
         sleep(0.5)
 
 except KeyboardInterrupt:
-    print("Keyboard interrupt detected, breaking.")
+    print_cli("Keyboard interrupt detected; stopping.", "STOP")
 except Exception as e:
-    print(e)
+    print_cli(str(e), "ERROR")
     logger.exception(e)
     raise
 finally:
     stop_event.set()
     logging.shutdown()
-    print("Program execution stopped. Cleared schedulers.")
+    print_section("PROGRAM STOPPED")
+    print_cli("Schedulers cleared and logging shut down.", "DONE")
