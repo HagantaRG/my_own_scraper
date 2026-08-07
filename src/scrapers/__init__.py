@@ -273,8 +273,10 @@ class ScrapeOrchestrator:
             print_cli("Google scrape temporary files removed.", "CLEANUP")
 
     def orchestrate_exchange_scrape(
-        self, test_mode: bool = False, max_workers: int = 3
+        self, test_mode: bool = False, max_workers: int = 1
     ) -> None:
+        if max_workers != 1:
+            max_workers: int = 1
         mode = "test" if test_mode else "standard"
         print_section(f"EXCHANGE SCRAPE - {mode.upper()} MODE")
         temp_path: Path = Path(f"{PROJECT_FOLDER}/temp-exchanges")
