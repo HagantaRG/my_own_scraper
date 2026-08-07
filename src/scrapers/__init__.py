@@ -7,6 +7,7 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from csv import DictReader
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import TracebackType
 
 # Third party libs
 from selenium.common.exceptions import WebDriverException
@@ -41,7 +42,30 @@ ACCEPTABLE_EXCEPTIONS: tuple[type[Exception], ...] = (
 )
 
 
-def _run_with_retries[ResultT](
+def _is_seleniumbase_cdc_none_error(exc: TypeError) -> bool:
+    expected_message = "object of type 'NoneType' has no len()"
+
+    if str(exc) != expected_message:
+        return False
+
+    traceback_item: TracebackType | None = exc.__traceback__
+
+    while traceback_item is not None:
+        frame = traceback_item.tb_frame
+        module_name = frame.f_globals.get("__name__", "")
+        function_name = frame.f_code.co_name
+
+        if (
+                module_name == "seleniumbase.undetected"
+                and function_name == "remove_cdc_props_as_needed"
+        ):
+            return True
+
+        traceback_item = traceback_item.tb_next
+
+    return False
+
+def _run_with_retries[ResultT](  # noqa: C901
     *, job_name: str, operation: Callable[[], ResultT], max_tries: int
 ) -> ResultT:
     if max_tries < 1:
@@ -69,6 +93,20 @@ def _run_with_retries[ResultT](
             raise UnexpectedPageFormatError(
                 "Retrieved page did not match expected format"
             ) from exc
+        except TypeError as exc:
+            if not _is_seleniumbase_cdc_none_error(exc):
+                raise
+            logger.exception(
+                f"{job_name} attempt {tries}/{max_tries} failed because "
+                "SeleniumBase returned None while inspecting CDC properties"
+            )
+            if tries < max_tries:
+                print_cli(
+                    f"{job_name} encountered a SeleniumBase startup error; retrying.",
+                    "RETRY",
+                )
+                continue
+            raise
         except Exception as exc:
             logger.exception(
                 f"{job_name} attempt {tries}/{max_tries} failed with a {type(exc).__name__} error",
