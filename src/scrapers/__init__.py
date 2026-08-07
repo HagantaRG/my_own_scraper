@@ -69,6 +69,11 @@ def _run_with_retries[ResultT](
             raise UnexpectedPageFormatError(
                 "Retrieved page did not match expected format"
             ) from exc
+        except Exception as exc:
+            logger.exception(
+                f"{job_name} attempt {tries}/{max_tries} failed with a {type(exc).__name__} error",
+            )
+            raise
     raise RuntimeError("Retry loop ended unexpectedly")
 
 

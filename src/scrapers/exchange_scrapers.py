@@ -286,8 +286,8 @@ def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
     count: int = 0
     scrape_link: str = "https://www.szse.cn/disclosure/listed/notice/index.html"
     logger.info(f"Starting scrape for {scrape_link}")
-    driver.get(scrape_link)
     try:
+        driver.get(scrape_link)
         while not last_page:
             logger.info(f"SZSE page {page_num} scraping...")
             WebDriverWait(driver, 30).until(
@@ -373,111 +373,114 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
     page_num: int = 0
     last_page: bool = False
     driver = Driver(uc=True, headless=True)
-    scrape_link: str = "https://www.sse.com.cn/disclosure/listedinfo/announcement/"
-    logger.info(f"Starting scrape for {scrape_link}")
-    driver.get(scrape_link)
-    logger.info("Waiting for page to fully load...")
-    WebDriverWait(driver, 60).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr > td"))
-    )
-    table_entry: WebElement = driver.find_element(By.CSS_SELECTOR, "tbody > tr > td")
-    logger.info("Clicking button to get last three days of info...")
-    date_range_button: WebElement = driver.find_element(By.CLASS_NAME, "range_date")
-    click_try: int = 0
-    while click_try < max_tries:
-        try:
-            click_try += 1
-            logger.debug(f"Clicking annoying button attempt {click_try}")
-            date_range_button.click()
-            WebDriverWait(driver, 1).until(
-                EC.presence_of_element_located(
-                    (By.CLASS_NAME, "laydate-btns-latestThree")
-                )
-            )
-        except WebDriverException:
-            pass
-    three_day_button: WebElement = driver.find_element(
-        By.CLASS_NAME, "laydate-btns-latestThree"
-    )
-    three_day_button.click()
-    WebDriverWait(driver, 30).until(EC.staleness_of(table_entry))
-    count: int = 0
-    while not last_page:
-        page_num += 1
-        logger.info(f"SSE page {page_num} scraping...")
+    try:
+        scrape_link: str = "https://www.sse.com.cn/disclosure/listedinfo/announcement/"
+        logger.info(f"Starting scrape for {scrape_link}")
+        driver.get(scrape_link)
+        logger.info("Waiting for page to fully load...")
         WebDriverWait(driver, 60).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr > td"))
         )
-        announcements: list[WebElement] = driver.find_elements(
-            By.CSS_SELECTOR, "tbody > tr"
-        )
-        announcement_stock_name: str = "N/A"
-        announcement_stock_code: str = "N/A"
-        for announcement in announcements:
-            count += 1
-            ann_class: str = announcement.get_attribute("class")
-            logger.debug(f"{count} {ann_class}")
-            announcement_details: list[WebElement] = announcement.find_elements(
-                By.TAG_NAME, "td"
-            )
-            announcement_link: str = (
-                announcement_details[2]
-                .find_element(By.TAG_NAME, "a")
-                .get_attribute("href")
-            )
-            date_text: str = announcement_details[5].text
-            announcement_date: datetime = datetime.strptime(
-                date_text, "%Y-%m-%d"
-            ).replace(tzinfo=SHANGHAI_TIME)
-            if ann_class == "multiple_bag" or "last_multiple" in ann_class:
+        table_entry: WebElement = driver.find_element(By.CSS_SELECTOR, "tbody > tr > td")
+        logger.info("Clicking button to get last three days of info...")
+        date_range_button: WebElement = driver.find_element(By.CLASS_NAME, "range_date")
+        click_try: int = 0
+        while click_try < max_tries:
+            try:
+                click_try += 1
+                logger.debug(f"Clicking annoying button attempt {click_try}")
+                date_range_button.click()
+                WebDriverWait(driver, 1).until(
+                    EC.presence_of_element_located(
+                        (By.CLASS_NAME, "laydate-btns-latestThree")
+                    )
+                )
+            except WebDriverException:
                 pass
+        three_day_button: WebElement = driver.find_element(
+            By.CLASS_NAME, "laydate-btns-latestThree"
+        )
+        three_day_button.click()
+        WebDriverWait(driver, 30).until(EC.staleness_of(table_entry))
+        count: int = 0
+        while not last_page:
+            page_num += 1
+            logger.info(f"SSE page {page_num} scraping...")
+            WebDriverWait(driver, 60).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr > td"))
+            )
+            announcements: list[WebElement] = driver.find_elements(
+                By.CSS_SELECTOR, "tbody > tr"
+            )
+            announcement_stock_name: str = "N/A"
+            announcement_stock_code: str = "N/A"
+            for announcement in announcements:
+                count += 1
+                ann_class: str = announcement.get_attribute("class")
+                logger.debug(f"{count} {ann_class}")
+                announcement_details: list[WebElement] = announcement.find_elements(
+                    By.TAG_NAME, "td"
+                )
+                announcement_link: str = (
+                    announcement_details[2]
+                    .find_element(By.TAG_NAME, "a")
+                    .get_attribute("href")
+                )
+                date_text: str = announcement_details[5].text
+                announcement_date: datetime = datetime.strptime(
+                    date_text, "%Y-%m-%d"
+                ).replace(tzinfo=SHANGHAI_TIME)
+                if ann_class == "multiple_bag" or "last_multiple" in ann_class:
+                    pass
+                else:
+                    announcement_stock_code: str = (
+                        announcement_details[0].find_element(By.TAG_NAME, "a").text
+                    )
+                    announcement_stock_name: str = (
+                        announcement_details[1].find_element(By.TAG_NAME, "a").text
+                    )
+                announcement_title: str = (
+                    announcement_details[2].find_element(By.TAG_NAME, "a").text
+                )
+                search_str: str = f"{announcement_title}{announcement_stock_code}{announcement_stock_name}"
+                relevant_keywords: list[str] = [
+                    keyword for keyword in keywords if keyword in f"{search_str}".upper()
+                ]
+                relevant_stock_codes: list[str] = [
+                    stock_code
+                    for stock_code in stock_codes
+                    if stock_code == announcement_stock_code
+                ]
+                relevant_keywords += relevant_stock_codes
+                news_info: NewsInformation = NewsInformation(
+                    news_link=announcement_link,
+                    news_date=announcement_date,
+                    news_title=announcement_title,
+                    retrieved_at=datetime.now(GMT_PLUS_7),
+                    relevant_keywords=relevant_keywords
+                    if len(relevant_keywords) > 0
+                    else [""],
+                )
+                logger.debug(f"{announcement_title}")
+                if "last_multiple" in ann_class:
+                    announcement_stock_name: str = "N/A"
+                    announcement_stock_code: str = "N/A"
+                if check_run_done(news_info):
+                    last_page = True
+                if news_info.relevant_keywords != [""]:
+                    write_info_to_csv(news_info)
+                if last_page:
+                    break
+            if not last_page:
+                logger.info(
+                    f"Not at end of relevant announcements for SSE after {count} docs scraped, going to next page."
+                )
+                next_button: WebElement = driver.find_element(
+                    By.CLASS_NAME, "next"
+                ).find_element(By.TAG_NAME, "a")
+                next_button.click()
+                WebDriverWait(driver, 30).until(EC.staleness_of(announcements[0]))
             else:
-                announcement_stock_code: str = (
-                    announcement_details[0].find_element(By.TAG_NAME, "a").text
-                )
-                announcement_stock_name: str = (
-                    announcement_details[1].find_element(By.TAG_NAME, "a").text
-                )
-            announcement_title: str = (
-                announcement_details[2].find_element(By.TAG_NAME, "a").text
-            )
-            search_str: str = f"{announcement_title}{announcement_stock_code}{announcement_stock_name}"
-            relevant_keywords: list[str] = [
-                keyword for keyword in keywords if keyword in f"{search_str}".upper()
-            ]
-            relevant_stock_codes: list[str] = [
-                stock_code
-                for stock_code in stock_codes
-                if stock_code == announcement_stock_code
-            ]
-            relevant_keywords += relevant_stock_codes
-            news_info: NewsInformation = NewsInformation(
-                news_link=announcement_link,
-                news_date=announcement_date,
-                news_title=announcement_title,
-                retrieved_at=datetime.now(GMT_PLUS_7),
-                relevant_keywords=relevant_keywords
-                if len(relevant_keywords) > 0
-                else [""],
-            )
-            logger.debug(f"{announcement_title}")
-            if "last_multiple" in ann_class:
-                announcement_stock_name: str = "N/A"
-                announcement_stock_code: str = "N/A"
-            if check_run_done(news_info):
-                last_page = True
-            if news_info.relevant_keywords != [""]:
-                write_info_to_csv(news_info)
-            if last_page:
-                break
-        if not last_page:
-            logger.info(
-                f"Not at end of relevant announcements for SSE after {count} docs scraped, going to next page."
-            )
-            next_button: WebElement = driver.find_element(
-                By.CLASS_NAME, "next"
-            ).find_element(By.TAG_NAME, "a")
-            next_button.click()
-            WebDriverWait(driver, 30).until(EC.staleness_of(announcements[0]))
-        else:
-            logger.info("Last page of SSE reached. Ending.")
+                logger.info("Last page of SSE reached. Ending.")
+    finally:
+        driver.quit()
