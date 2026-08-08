@@ -1,7 +1,7 @@
 import logging
 import random
 import urllib.parse
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from datetime import datetime, timedelta, timezone
 from time import sleep
 
@@ -37,6 +37,7 @@ def run_search(
     search_term: str,
     search_params: dict[str, str],
     driver: DriverMethods,
+    status_callback: Callable[[str | None], None] | None = None,
 ) -> Generator[list[SearchResult], None, str]:
     search_params["q"] = search_term
     encoded_str: str = urllib.parse.urlencode(search_params)
@@ -63,12 +64,20 @@ def run_search(
         )
         tries: int = 0
         while "captcha" in current_html:
-            delay = min(60, 2 * tries)
+            delay: float = min(60.0, 2 ** tries)
             captcha_wait: float = random.uniform(delay * 0.5, delay)
             logger.info(
                 f"Captcha detected in current HTML, waiting {int(captcha_wait)} seconds and retrying."
             )
-            sleep(captcha_wait)
+            if status_callback is not None:
+                status_callback(
+                    f"CAPTCHA backoff: {captcha_wait:.1f}s (retry {tries + 1})"
+                )
+            try:
+                sleep(captcha_wait)
+            finally:
+                if status_callback is not None:
+                    status_callback(None)
             driver.get(encoded_query)
             current_html: str = driver.find_element(By.XPATH, "//body").get_attribute(
                 "outerHTML"
@@ -125,13 +134,16 @@ def run_search(
 
 def google_search_scrape(
     sheet_dict: dict[str, list[str]],
+    progress_callback: Callable[[int, int, str], None] | None = None,
+    status_callback: Callable[[str | None], None] | None = None,
 ) -> dict[str, list[SearchResult]]:
     search_terms: list[str] = sheet_dict["google_search_terms"]
+    total_terms = len(search_terms)
     base_url: str = "https://www.google.com/search?"
     res_dict: dict[str, list[SearchResult]] = {}
     driver = Driver(uc=True, headless=True, incognito=True)
     try:
-        for search_term in search_terms:
+        for completed, search_term in enumerate(search_terms, start=1):
             logger.info(f"Starting search scrape for {search_term}")
             search_params: dict[str, str] = {
                 "tbm": "nws",
@@ -145,8 +157,11 @@ def google_search_scrape(
                 search_term=search_term,
                 driver=driver,
                 search_params=search_params,
+                status_callback=status_callback,
             ):
                 res_dict[search_term] += page
+            if progress_callback is not None:
+                progress_callback(completed, total_terms, search_term)
         return res_dict
     finally:
         driver.quit()
