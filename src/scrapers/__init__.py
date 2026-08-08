@@ -19,7 +19,7 @@ from src.scrapers import exchange_scrapers as scrapers
 from src.scrapers.google_scrape import SearchResult, google_search_scrape
 from src.smtp_functions import send_email
 from src.utils import email_utils, toml_reader
-from src.utils.cli_utils import print_cli, print_section
+from src.utils.cli_utils import ProgressBar, Spinner, print_cli, print_section
 from src.utils.filepaths import PROJECT_FOLDER, SETTINGS_FOLDER
 from src.utils.toml_reader import Toml
 
@@ -56,14 +56,15 @@ def _is_seleniumbase_cdc_none_error(exc: TypeError) -> bool:
         function_name = frame.f_code.co_name
 
         if (
-                module_name == "seleniumbase.undetected"
-                and function_name == "remove_cdc_props_as_needed"
+            module_name == "seleniumbase.undetected"
+            and function_name == "remove_cdc_props_as_needed"
         ):
             return True
 
         traceback_item = traceback_item.tb_next
 
     return False
+
 
 def _run_with_retries[ResultT](  # noqa: C901
     *, job_name: str, operation: Callable[[], ResultT], max_tries: int
@@ -122,11 +123,13 @@ def _run_scrape_job(
     max_tries: int,
 ) -> bool:
     start_time: datetime = datetime.now(GMT_PLUS_7)
-    _run_with_retries(
-        job_name=job_name,
-        operation=lambda: job(keywords_sheet),
-        max_tries=max_tries,
-    )
+    display_name = job_name.removeprefix("Scrape_").replace("_", " ")
+    with Spinner(f"{display_name} scraper is running"):
+        _run_with_retries(
+            job_name=job_name,
+            operation=lambda: job(keywords_sheet),
+            max_tries=max_tries,
+        )
     end_time: datetime = datetime.now(GMT_PLUS_7)
     scrape_time: timedelta = end_time - start_time
     logger.info(
@@ -143,11 +146,17 @@ def _run_google_job(
     job_name: str, keywords_sheet: dict[str, list[str]], max_tries: int
 ) -> dict[str, list[SearchResult]]:
     start_time: datetime = datetime.now(GMT_PLUS_7)
-    search_results = _run_with_retries(
-        job_name=job_name,
-        operation=lambda: google_search_scrape(keywords_sheet),
-        max_tries=max_tries,
-    )
+    with ProgressBar("Google keywords") as progress:
+        progress.update(0, len(keywords_sheet["google_search_terms"]))
+        search_results = _run_with_retries(
+            job_name=job_name,
+            operation=lambda: google_search_scrape(
+                keywords_sheet,
+                progress_callback=progress.callback(),
+                status_callback=progress.set_status,
+            ),
+            max_tries=max_tries,
+        )
     end_time: datetime = datetime.now(GMT_PLUS_7)
     scrape_time: timedelta = end_time - start_time
     logger.info(
@@ -192,7 +201,10 @@ class ScrapeOrchestrator:
                 for field in csv_reader.fieldnames:
                     if row[field] == "":
                         continue
-                    sheet_dict[field].append(str(row[field]).upper())
+                    text: str = str(row[field]).upper()
+                    if text not in sheet_dict[field]:
+                        sheet_dict[field].append(text)
+
         logger.info(f"Keywords: {sheet_dict}")
         self.keywords_sheet = sheet_dict
         keyword_count = sum(len(keywords) for keywords in sheet_dict.values())
@@ -339,7 +351,6 @@ class ScrapeOrchestrator:
                     f"Exchange scrape completed with {len(failed_jobs)} failed job(s).",
                     "WARNING",
                 )
-                raise ScrapeBatchError(failed_jobs)
             print_cli("All exchange scraper jobs completed successfully.", "DONE")
         finally:
             shutil.rmtree(temp_path, ignore_errors=True)

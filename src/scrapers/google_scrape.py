@@ -55,8 +55,9 @@ def run_search(
             "path": "/",
         }
     )
-    search_results: list[SearchResult] = []
+    total_res: int = 0
     while not end_of_results:
+        search_results: list[SearchResult] = []
         driver.get(encoded_query)
         sleep(3)
         current_html: str = driver.find_element(By.XPATH, "//body").get_attribute(
@@ -125,9 +126,11 @@ def run_search(
             logger.info(f"Going to next page for search term {search_params['q']}")
         except WebDriverException:
             end_of_results = True
+        total_res += len(search_results)
         yield search_results
+
     logger.info(
-        f"End of results reached for {search_params['q']}, found {len(search_results)} results."
+        f"End of results reached for {search_params['q']}, found {total_res} results."
     )
     return "End of results"
 

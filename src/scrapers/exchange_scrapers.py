@@ -395,6 +395,7 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
                         (By.CLASS_NAME, "laydate-btns-latestThree")
                     )
                 )
+                break
             except WebDriverException:
                 pass
         three_day_button: WebElement = driver.find_element(
