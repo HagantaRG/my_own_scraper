@@ -62,7 +62,7 @@ try:
                 all_scrape_schedule = (
                     every()
                     .day.at("09:00")
-                    .do(run_threaded, orchestrator.scrape_all())
+                    .do(run_threaded, orchestrator.scrape_all)
                 )
                 logger.info("9AM scrapes scheduled.")
                 print_cli(
