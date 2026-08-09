@@ -3,13 +3,49 @@
 import sys
 import traceback
 from collections.abc import Callable
+from os import environ
 from threading import Event, Lock, Thread
 from time import monotonic
 
 CLI_WIDTH = 72
 ANSI_RED = "\033[31m"
+ANSI_GREEN = "\033[32m"
+ANSI_YELLOW = "\033[33m"
+ANSI_BLUE = "\033[34m"
+ANSI_MAGENTA = "\033[35m"
+ANSI_CYAN = "\033[36m"
 ANSI_RESET = "\033[0m"
+LABEL_COLORS = {
+    "CLEANUP": ANSI_CYAN,
+    "DONE": ANSI_GREEN,
+    "EMAIL": ANSI_MAGENTA,
+    "ERROR": ANSI_RED,
+    "INFO": ANSI_CYAN,
+    "RETRY": ANSI_RED,
+    "RUN": ANSI_BLUE,
+    "SCHEDULE": ANSI_MAGENTA,
+    "SETUP": ANSI_CYAN,
+    "STOP": ANSI_YELLOW,
+    "STOPPED": ANSI_YELLOW,
+    "WARNING": ANSI_RED,
+}
 _output_lock = Lock()
+
+
+def _supports_color() -> bool:
+    """Return whether ANSI colors are appropriate for the current output."""
+    return "NO_COLOR" not in environ and sys.stdout.isatty()
+
+
+def _colorize(message: str, color: str | None) -> str:
+    if color is None or not _supports_color():
+        return message
+    return f"{color}{message}{ANSI_RESET}"
+
+
+def _format_cli_message(message: str, label: str) -> str:
+    line = f"[{label}] {message}"
+    return _colorize(line, LABEL_COLORS.get(label.upper()))
 
 
 def _clear_live_line() -> None:
@@ -21,7 +57,7 @@ def print_cli(message: str, label: str = "INFO") -> None:
     """Print one consistently formatted status message."""
     with _output_lock:
         _clear_live_line()
-        print(f"[{label}] {message}")
+        print(_format_cli_message(message, label))
 
 
 def print_error(exception: BaseException, context: str | None = None) -> None:
@@ -32,7 +68,7 @@ def print_error(exception: BaseException, context: str | None = None) -> None:
         traceback.format_exception(type(exception), exception, exception.__traceback__)
     ).rstrip()
     context_line = f"Worker: {context}\n" if context else ""
-    use_color = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+    use_color = _supports_color()
     color_start = ANSI_RED if use_color else ""
     color_end = ANSI_RESET if use_color else ""
 
@@ -155,9 +191,8 @@ class ProgressBar:
         with _output_lock:
             _clear_live_line()
             status = "DONE" if succeeded else "STOPPED"
-            print(
-                f"[{status}] {self.label}: {self._last_completed}/{self._total} processed."
-            )
+            message = f"{self.label}: {self._last_completed}/{self._total} processed."
+            print(_format_cli_message(message, status))
 
     def __enter__(self) -> "ProgressBar":
         return self
