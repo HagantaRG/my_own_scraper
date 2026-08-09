@@ -59,15 +59,10 @@ try:
                 logger.info(
                     "Cleared any existing jobs, cleared previously existing schedulers."
                 )
-                stock_scrape_schedule = (
+                all_scrape_schedule = (
                     every()
                     .day.at("09:00")
-                    .do(run_threaded, orchestrator.orchestrate_exchange_scrape)
-                )
-                google_scrape_schedule = (
-                    every()
-                    .day.at("09:00")
-                    .do(run_threaded, orchestrator.orchestrate_google_scrape)
+                    .do(run_threaded, orchestrator.scrape_all())
                 )
                 logger.info("9AM scrapes scheduled.")
                 print_cli(

@@ -11,7 +11,7 @@ from types import TracebackType
 
 # Third party libs
 from selenium.common.exceptions import WebDriverException
-from urllib3.exceptions import ReadTimeoutError
+from urllib3.exceptions import MaxRetryError, ReadTimeoutError
 
 # Custom libs
 from src.gmail_client import GoogleClient
@@ -39,7 +39,7 @@ ACCEPTABLE_EXCEPTIONS: tuple[type[Exception], ...] = (
     WebDriverException,
     UnexpectedPageFormatError,
     ReadTimeoutError,
-
+    MaxRetryError
 )
 
 
@@ -286,10 +286,9 @@ class ScrapeOrchestrator:
             print_cli("Google scrape temporary files removed.", "CLEANUP")
 
     def orchestrate_exchange_scrape(
-        self, test_mode: bool = False, max_workers: int = 1
+        self, test_mode: bool = False
     ) -> None:
-        if max_workers != 1:
-            max_workers: int = 1
+        max_workers: int = 1
         mode = "test" if test_mode else "standard"
         print_section(f"EXCHANGE SCRAPE - {mode.upper()} MODE")
         temp_path: Path = Path(f"{PROJECT_FOLDER}/temp-exchanges")
@@ -356,3 +355,7 @@ class ScrapeOrchestrator:
         finally:
             shutil.rmtree(temp_path, ignore_errors=True)
             print_cli("Exchange scrape temporary files removed.", "CLEANUP")
+
+    def scrape_all(self):
+        self.orchestrate_exchange_scrape()
+        self.orchestrate_google_scrape()
