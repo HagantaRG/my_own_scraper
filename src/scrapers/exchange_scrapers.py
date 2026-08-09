@@ -378,7 +378,7 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
         logger.info(f"Starting scrape for {scrape_link}")
         driver.get(scrape_link)
         logger.info("Waiting for page to fully load...")
-        WebDriverWait(driver, 60).until(
+        WebDriverWait(driver, 120).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr > td"))
         )
         table_entry: WebElement = driver.find_element(By.CSS_SELECTOR, "tbody > tr > td")
