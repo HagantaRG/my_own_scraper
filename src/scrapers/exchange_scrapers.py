@@ -372,7 +372,12 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
     stock_codes: list[str] = sheet_dict["stock_code_cn"]
     page_num: int = 0
     last_page: bool = False
-    driver = Driver(uc=True, headless=True)
+    driver = Driver(
+        uc=True,
+        headless=True,
+        page_load_strategy="eager",
+    )
+    driver.set_page_load_timeout(45)
     try:
         scrape_link: str = "https://www.sse.com.cn/disclosure/listedinfo/announcement/"
         logger.info(f"Starting scrape for {scrape_link}")
