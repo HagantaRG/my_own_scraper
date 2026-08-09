@@ -39,6 +39,7 @@ ACCEPTABLE_EXCEPTIONS: tuple[type[Exception], ...] = (
     WebDriverException,
     UnexpectedPageFormatError,
     ReadTimeoutError,
+
 )
 
 

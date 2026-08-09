@@ -1,11 +1,14 @@
 """Small, thread-safe formatting helpers for CLI output."""
 
 import sys
+import traceback
 from collections.abc import Callable
 from threading import Event, Lock, Thread
 from time import monotonic
 
 CLI_WIDTH = 72
+ANSI_RED = "\033[31m"
+ANSI_RESET = "\033[0m"
 _output_lock = Lock()
 
 
@@ -19,6 +22,23 @@ def print_cli(message: str, label: str = "INFO") -> None:
     with _output_lock:
         _clear_live_line()
         print(f"[{label}] {message}")
+
+
+def print_error(exception: BaseException, context: str | None = None) -> None:
+    """Render an exception as one uninterrupted, visually distinct CLI block."""
+    heading = "[ERROR MESSAGE]".center(CLI_WIDTH, "-")
+    footer = "[END OF ERROR MESSAGE]".center(CLI_WIDTH, "-")
+    trace = "".join(
+        traceback.format_exception(type(exception), exception, exception.__traceback__)
+    ).rstrip()
+    context_line = f"Worker: {context}\n" if context else ""
+    use_color = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+    color_start = ANSI_RED if use_color else ""
+    color_end = ANSI_RESET if use_color else ""
+
+    with _output_lock:
+        _clear_live_line()
+        print(f"\n{color_start}{heading}\n{context_line}{trace}\n{footer}{color_end}")
 
 
 def print_section(title: str) -> None:
