@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Google Search Email Preview</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f3f6fa; color: #243247; font-family: Arial, Helvetica, sans-serif; }
+    .wrapper { width: 100%; padding: 32px 12px; box-sizing: border-box; }
+    .card { max-width: 680px; margin: 0 auto; overflow: hidden; border: 1px solid #dfe6ef; border-radius: 12px; background: #ffffff; }
+    .header { padding: 30px 36px; background: #174f47; color: #ffffff; }
+    .eyebrow { margin: 0 0 8px; color: #bde1dc; font-size: 12px; font-weight: bold; letter-spacing: 1.2px; text-transform: uppercase; }
+    h1 { margin: 0 0 10px; font-size: 26px; line-height: 1.25; }
+    .date { margin: 0; color: #d9efec; font-size: 14px; }
+    .content { padding: 28px 36px 36px; }
+    .summary { margin: 0 0 24px; color: #52657a; font-size: 15px; }
+    .tab-input { position: absolute; opacity: 0; }
+    .tab-list { display: flex; gap: 4px; margin: 0 -4px 20px; overflow-x: auto; border-bottom: 1px solid #dfe6ef; }
+    .tab-label { display: inline-block; padding: 10px 14px; border: 1px solid transparent; border-bottom: 0; border-radius: 7px 7px 0 0; color: #52657a; cursor: pointer; font-size: 14px; font-weight: bold; line-height: 1.2; white-space: nowrap; }
+    .tab-label:hover { background: #edf6f4; color: #087f70; }
+    .tab-panel { display: none; margin: 0 0 28px; }
+    .section-title { margin: 0 0 10px; padding-bottom: 8px; border-bottom: 2px solid #dceeea; color: #174f47; font-size: 18px; }
+    .article { padding: 12px 0; border-bottom: 1px solid #edf1f5; }
+    .article-link { color: #087f70; font-size: 15px; font-weight: bold; line-height: 1.45; text-decoration: none; }
+    .article-link:hover { text-decoration: underline; }
+    .article-meta { margin-top: 5px; color: #68788a; font-size: 12px; }
+    .footer { padding: 18px 36px; background: #f7f9fc; color: #7b8998; font-size: 12px; text-align: center; }
+    #search-tab-0:checked ~ .tab-list label[for="search-tab-0"], #search-tab-1:checked ~ .tab-list label[for="search-tab-1"], #search-tab-2:checked ~ .tab-list label[for="search-tab-2"], #search-tab-3:checked ~ .tab-list label[for="search-tab-3"], #search-tab-4:checked ~ .tab-list label[for="search-tab-4"], #search-tab-5:checked ~ .tab-list label[for="search-tab-5"], #search-tab-6:checked ~ .tab-list label[for="search-tab-6"], #search-tab-7:checked ~ .tab-list label[for="search-tab-7"], #search-tab-8:checked ~ .tab-list label[for="search-tab-8"], #search-tab-9:checked ~ .tab-list label[for="search-tab-9"] { background: #edf6f4; border-color: #dceeea; color: #087f70; }
+    #search-tab-0:checked ~ .tab-content #search-panel-0, #search-tab-1:checked ~ .tab-content #search-panel-1, #search-tab-2:checked ~ .tab-content #search-panel-2, #search-tab-3:checked ~ .tab-content #search-panel-3, #search-tab-4:checked ~ .tab-content #search-panel-4, #search-tab-5:checked ~ .tab-content #search-panel-5, #search-tab-6:checked ~ .tab-content #search-panel-6, #search-tab-7:checked ~ .tab-content #search-panel-7, #search-tab-8:checked ~ .tab-content #search-panel-8, #search-tab-9:checked ~ .tab-content #search-panel-9 { display: block; }
+    @media only screen and (max-width: 600px) { .wrapper { padding: 0; } .card { border-radius: 0; } .header, .content { padding-left: 22px; padding-right: 22px; } }
+  </style>
+</head>
+<body>
+  <div class="wrapper"><div class="card">
+    <div class="header"><p class="eyebrow">Google News</p><h1>Relevant Search Results</h1><p class="date">10 August 2026</p></div>
+    <div class="content">
+      <p class="summary">16 relevant results from 10 search terms</p>
+
+      <input class="tab-input" type="radio" name="search-tabs" id="search-tab-0" checked>
+      <input class="tab-input" type="radio" name="search-tabs" id="search-tab-1">
+      <input class="tab-input" type="radio" name="search-tabs" id="search-tab-2">
+      <input class="tab-input" type="radio" name="search-tabs" id="search-tab-3">
+      <input class="tab-input" type="radio" name="search-tabs" id="search-tab-4">
+      <input class="tab-input" type="radio" name="search-tabs" id="search-tab-5">
+      <input class="tab-input" type="radio" name="search-tabs" id="search-tab-6">
+      <input class="tab-input" type="radio" name="search-tabs" id="search-tab-7">
+      <input class="tab-input" type="radio" name="search-tabs" id="search-tab-8">
+      <input class="tab-input" type="radio" name="search-tabs" id="search-tab-9">
+
+      <div class="tab-list">
+        <label class="tab-label" for="search-tab-0">Coal Market</label>
+        <label class="tab-label" for="search-tab-1">Oil Prices</label>
+        <label class="tab-label" for="search-tab-2">Copper</label>
+        <label class="tab-label" for="search-tab-3">Nickel</label>
+        <label class="tab-label" for="search-tab-4">Renewable Energy</label>
+        <label class="tab-label" for="search-tab-5">Carbon Credits</label>
+        <label class="tab-label" for="search-tab-6">Dividend</label>
+        <label class="tab-label" for="search-tab-7">Mergers &amp; Acquisitions</label>
+        <label class="tab-label" for="search-tab-8">Indonesia Mining</label>
+        <label class="tab-label" for="search-tab-9">LNG</label>
+      </div>
+
+      <div class="tab-content">
+        <div class="tab-panel" id="search-panel-0"><h2 class="section-title">Coal Market</h2><div class="article"><a class="article-link" href="https://example.com/coal-demand">Asian thermal coal demand strengthens ahead of seasonal peak</a><div class="article-meta">10 Aug 2026</div></div><div class="article"><a class="article-link" href="https://example.com/coal-supply">New supply outlook reshapes regional coal trade flows</a><div class="article-meta">09 Aug 2026</div></div></div>
+        <div class="tab-panel" id="search-panel-1"><h2 class="section-title">Oil Prices</h2><div class="article"><a class="article-link" href="https://example.com/oil-prices">Crude prices rise as traders assess inventory data</a><div class="article-meta">10 Aug 2026</div></div><div class="article"><a class="article-link" href="https://example.com/oil-outlook">Analysts revise their second-half oil market outlook</a><div class="article-meta">09 Aug 2026</div></div></div>
+        <div class="tab-panel" id="search-panel-2"><h2 class="section-title">Copper</h2><div class="article"><a class="article-link" href="https://example.com/copper-inventory">Copper inventories fall at major exchange warehouses</a><div class="article-meta">10 Aug 2026</div></div></div>
+        <div class="tab-panel" id="search-panel-3"><h2 class="section-title">Nickel</h2><div class="article"><a class="article-link" href="https://example.com/nickel-export">Nickel producers review export strategy amid changing demand</a><div class="article-meta">10 Aug 2026</div></div></div>
+        <div class="tab-panel" id="search-panel-4"><h2 class="section-title">Renewable Energy</h2><div class="article"><a class="article-link" href="https://example.com/renewables-grid">New renewable projects receive grid-connection approval</a><div class="article-meta">10 Aug 2026</div></div><div class="article"><a class="article-link" href="https://example.com/renewables-investment">Investment in clean-energy infrastructure accelerates</a><div class="article-meta">08 Aug 2026</div></div></div>
+        <div class="tab-panel" id="search-panel-5"><h2 class="section-title">Carbon Credits</h2><div class="article"><a class="article-link" href="https://example.com/carbon-market">Carbon-credit market participants prepare for policy changes</a><div class="article-meta">09 Aug 2026</div></div></div>
+        <div class="tab-panel" id="search-panel-6"><h2 class="section-title">Dividend</h2><div class="article"><a class="article-link" href="https://example.com/dividend-declaration">Listed company announces interim dividend timetable</a><div class="article-meta">10 Aug 2026</div></div><div class="article"><a class="article-link" href="https://example.com/dividend-yield">Investors compare dividend yields across regional markets</a><div class="article-meta">08 Aug 2026</div></div></div>
+        <div class="tab-panel" id="search-panel-7"><h2 class="section-title">Mergers &amp; Acquisitions</h2><div class="article"><a class="article-link" href="https://example.com/ma-transaction">Companies enter agreement for strategic acquisition</a><div class="article-meta">10 Aug 2026</div></div></div>
+        <div class="tab-panel" id="search-panel-8"><h2 class="section-title">Indonesia Mining</h2><div class="article"><a class="article-link" href="https://example.com/indonesia-mining">Indonesia mining sector updates production guidance</a><div class="article-meta">09 Aug 2026</div></div><div class="article"><a class="article-link" href="https://example.com/indonesia-permits">New mining permits focus on downstream processing</a><div class="article-meta">08 Aug 2026</div></div></div>
+        <div class="tab-panel" id="search-panel-9"><h2 class="section-title">LNG</h2><div class="article"><a class="article-link" href="https://example.com/lng-contract">LNG buyers secure additional long-term supply contracts</a><div class="article-meta">10 Aug 2026</div></div><div class="article"><a class="article-link" href="https://example.com/lng-shipping">Shipping rates influence spot LNG cargo decisions</a><div class="article-meta">09 Aug 2026</div></div></div>
+      </div>
+    </div>
+    <div class="footer">Preview only — all links and content are dummy data.</div>
+  </div></div>
+</body>
+</html>
