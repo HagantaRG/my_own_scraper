@@ -1,5 +1,6 @@
 """Small, thread-safe formatting helpers for CLI output."""
 
+import logging
 import sys
 import traceback
 from collections.abc import Callable
@@ -62,19 +63,39 @@ def print_cli(message: str, label: str = "INFO") -> None:
 
 def print_error(exception: BaseException, context: str | None = None) -> None:
     """Render an exception as one uninterrupted, visually distinct CLI block."""
-    heading = "[ERROR MESSAGE]".center(CLI_WIDTH, "-")
-    footer = "[END OF ERROR MESSAGE]".center(CLI_WIDTH, "-")
     trace = "".join(
         traceback.format_exception(type(exception), exception, exception.__traceback__)
     ).rstrip()
     context_line = f"Worker: {context}\n" if context else ""
-    use_color = _supports_color()
-    color_start = ANSI_RED if use_color else ""
-    color_end = ANSI_RESET if use_color else ""
+    _print_error_block(f"{context_line}{trace}")
+
+
+def _print_error_block(message: str) -> None:
+    """Print error text as one synchronized block, clearing live CLI output first."""
+    heading = "[ERROR MESSAGE]".center(CLI_WIDTH, "-")
+    footer = "[END OF ERROR MESSAGE]".center(CLI_WIDTH, "-")
+    color_start = ANSI_RED if _supports_color() else ""
+    color_end = ANSI_RESET if _supports_color() else ""
 
     with _output_lock:
         _clear_live_line()
-        print(f"\n{color_start}{heading}\n{context_line}{trace}\n{footer}{color_end}")
+        print(f"\n{color_start}{heading}\n{message}\n{footer}{color_end}")
+
+
+class CliStreamHandler(logging.StreamHandler):
+    """Send console log errors through the same atomic CLI error renderer."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            message = self.format(record)
+            if record.levelno >= logging.ERROR:
+                _print_error_block(message)
+            else:
+                with _output_lock:
+                    _clear_live_line()
+                    print(_colorize(message, ANSI_RED))
+        except Exception:  # noqa: BLE001
+            self.handleError(record)
 
 
 def print_section(title: str) -> None:

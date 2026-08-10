@@ -11,7 +11,7 @@ from schedule import clear, every
 
 # Custom libs
 from src.scrapers import ScrapeOrchestrator
-from src.utils.cli_utils import print_cli, print_menu, print_section
+from src.utils.cli_utils import CliStreamHandler, print_cli, print_menu, print_section
 from src.utils.filepaths import LOGS_FOLDER
 from src.utils.thread_utils import run_continuously, run_threaded
 
@@ -26,7 +26,7 @@ makedirs(f"{LOGS_FOLDER}", exist_ok=True)
 rotating_handler: TimedRotatingFileHandler = TimedRotatingFileHandler(
     filename=log_file, encoding="utf-8", when="midnight", backupCount=10
 )
-stdout_handler: logging.StreamHandler = logging.StreamHandler(sys.stdout)
+stdout_handler: CliStreamHandler = CliStreamHandler(sys.stdout)
 stdout_handler.setLevel(logging.WARNING)
 
 logging.basicConfig(
