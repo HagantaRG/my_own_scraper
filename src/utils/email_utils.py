@@ -80,19 +80,8 @@ def construct_webscraper_email(failed_jobs: list[str]) -> str:
 
 
 def construct_search_email(results: dict[str, list[SearchResult]]) -> str:
-    tab_controls = "".join(
-        f'<input class="tab-input" type="radio" name="search-tabs" '
-        f'id="search-tab-{index}"'
-        f"{' checked' if index == 0 else ''}>"
-        for index, _search_term in enumerate(results)
-    )
-    tab_labels = "".join(
-        f'<label class="tab-label" for="search-tab-{index}">'
-        f"{escape(search_term)}</label>"
-        for index, search_term in enumerate(results)
-    )
-    tab_panels = "".join(
-        f'<div class="tab-panel" id="search-panel-{index}">'
+    sections = "".join(
+        '<div class="section">'
         f'<h2 class="section-title">{escape(search_term)}</h2>'
         + (
             "".join(
@@ -106,24 +95,13 @@ def construct_search_email(results: dict[str, list[SearchResult]]) -> str:
             or '<div class="empty-state">No results for this search.</div>'
         )
         + "</div>"
-        for index, (search_term, search_results) in enumerate(results.items())
-    )
-    tab_rules = "\n".join(
-        f"#search-tab-{index}:checked ~ .tab-list "
-        f'label[for="search-tab-{index}"] '
-        "{ background: #edf6f4; border-color: #dceeea; color: #087f70; }\n"
-        f"#search-tab-{index}:checked ~ .tab-content "
-        f"#search-panel-{index} {{ display: block; }}"
-        for index in range(len(results))
+        for search_term, search_results in results.items()
     )
     result_count = sum(len(items) for items in results.values())
     return _render_template(
         "search_email.html",
         report_date=datetime.now(GMT_PLUS_7).strftime("%d %B %Y"),
         summary=f"{result_count} relevant result{'s' if result_count != 1 else ''} from {len(results)} search term{'s' if len(results) != 1 else ''}",
-        tab_controls=tab_controls,
-        tab_labels=tab_labels,
-        tab_panels=tab_panels
+        sections=sections
         or '<div class="empty-state">No matching search results were found today.</div>',
-        tab_rules=tab_rules,
     )
