@@ -46,6 +46,20 @@ try:
         match user_input:
             case "help":
                 print_menu()
+            case "test-single-scrape":
+                scraper_name = input("Scraper function name > ").strip()
+                if scraper_name not in orchestrator.exchange_jobs():
+                    print_cli(
+                        f'No scraper function named "{scraper_name}" exists.',
+                        "ERROR",
+                    )
+                else:
+                    print_cli(f"Starting test scrape: {scraper_name}", "RUN")
+                    run_threaded(
+                        orchestrator.orchestrate_exchange_scrape,
+                        test_mode=True,
+                        scraper_name=scraper_name,
+                    )
             case "test-run":
                 print_cli(
                     "Starting a one-off test scrape; results will be emailed to the admins."

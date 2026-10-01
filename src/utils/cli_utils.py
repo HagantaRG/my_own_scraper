@@ -118,6 +118,7 @@ def print_menu() -> None:
             f"{divider}\n"
             "  help               Show this command menu\n"
             "  test-run           Run all exchange scrapers; email admins only\n"
+            "  test-single-scrape Run one named exchange scraper; email admins only\n"
             "  standard-schedule  Schedule exchange and Google scrapes for 09:00\n"
             "  single-scrape      Run all exchange scrapers once\n"
             "  google-scrape      Run the Google scraper once\n"

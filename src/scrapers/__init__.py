@@ -184,6 +184,20 @@ class ScrapeOrchestrator:
     ):
         self.max_tries = max_tries
 
+    @staticmethod
+    def exchange_jobs() -> dict[str, Callable[[dict[str, list[str]]], None]]:
+        """Return scraper functions defined in exchange_scrapers.py."""
+        jobs: dict[str, Callable[[dict[str, list[str]]], None]] = {}
+        for name in dir(scrapers):
+            job = getattr(scrapers, name)
+            if (
+                name.startswith("scrape_")
+                and callable(job)
+                and getattr(job, "__module__", None) == scrapers.__name__
+            ):
+                jobs[name] = job
+        return jobs
+
     def _retrieve_keywords_csv(self, temp_path: Path) -> None:
         logger.info("Retrieving keywords CSV.")
         print_cli("Downloading the latest keyword list.", "SETUP")
@@ -286,8 +300,15 @@ class ScrapeOrchestrator:
             print_cli("Google scrape temporary files removed.", "CLEANUP")
 
     def orchestrate_exchange_scrape(
-        self, test_mode: bool = False
+        self, test_mode: bool = False, scraper_name: str | None = None
     ) -> None:
+        available_jobs = self.exchange_jobs()
+        if scraper_name is not None:
+            if scraper_name not in available_jobs:
+                raise ValueError(f"No scraper function named {scraper_name!r} exists.")
+            available_jobs = {scraper_name: available_jobs[scraper_name]}
+
+        job_dict = {name.title(): job for name, job in available_jobs.items()}
         max_workers: int = 1
         mode = "test" if test_mode else "standard"
         print_section(f"EXCHANGE SCRAPE - {mode.upper()} MODE")
@@ -296,11 +317,6 @@ class ScrapeOrchestrator:
         try:
             # Loop through scraping functions and run, logging successes vs failures
             failed_jobs: list[str] = []
-            job_dict: dict[str, Callable] = {}
-            for a in dir(scrapers):
-                item = getattr(scrapers, a)
-                if isinstance(item, Callable) and a.startswith("scrape_"):
-                    job_dict[a.title()] = item
             print_section(
                 f"RUNNING {len(job_dict)} EXCHANGE SCRAPERS ({max_workers} WORKERS)"
             )
