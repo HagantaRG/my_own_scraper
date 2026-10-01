@@ -117,6 +117,7 @@ The application displays a command menu with these options:
 | --- | --- |
 | `help` | Display the command menu again. |
 | `test-run` | Run all exchange scrapers once and email only the administrators. |
+| `test-single-scrape` | Prompt for an exchange scraper function name, run only that scraper, and email only the administrators. |
 | `standard-schedule` | Schedule exchange and Google scrapes for 09:00 local time each day. |
 | `single-scrape` | Run all exchange scrapers once and email the normal recipients. |
 | `google-scrape` | Run only the Google News scraper. |

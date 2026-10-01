@@ -1,8 +1,12 @@
+import calendar
+import codecs
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from json import loads
 from zoneinfo import ZoneInfo
 
+from curl_cffi import requests
+from requests import get
 from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
@@ -21,6 +25,7 @@ SINGAPORE_TIME = ZoneInfo("Asia/Singapore")
 KUALA_LUMPUR_TIME = ZoneInfo("Asia/Kuala_Lumpur")
 SHENZHEN_TIME = ZoneInfo("Asia/Shanghai")
 SHANGHAI_TIME = ZoneInfo("Asia/Shanghai")
+
 # Defines max retries for all retry-supporting steps.
 max_tries: int = 5
 
@@ -490,3 +495,137 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
                 logger.info("Last page of SSE reached. Ending.")
     finally:
         driver.quit()
+
+def scrape_sgx_json(sheet_dict: dict[str, list[str]]) -> None:
+    timezone_fmt = "%Y%m%d_%H%M%S"
+    sgt = timezone(timedelta(hours=8))
+    keywords: list[str] = sheet_dict["keywords"]
+
+    def get_sgx_token() -> str:
+        req_params = {
+            "queryId": "9c3e9f7f03300303a53a580b5a7e760732e5a320:we_chat_qr_validator"
+        }
+        request = get(
+            url="https://api2.sgx.com/content-api/",
+            params=req_params
+        )
+        request.raise_for_status()
+        return codecs.decode(request.json()["data"]["qrValidator"], "rot13")
+
+    def _add_years(dt: datetime, years: int) -> datetime:
+        """moment().add(n, 'Y'): same month/day, clamped to month end (Feb 29 -> Feb 28)."""
+        y = dt.year + years
+        day = min(dt.day, calendar.monthrange(y, dt.month)[1])
+        return dt.replace(year=y, day=day)
+
+    def _start_of_day(dt: datetime) -> datetime:
+        return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    def _end_of_day(dt: datetime) -> datetime:
+        return dt.replace(hour=23, minute=59, second=59, microsecond=999000)
+
+    def sgx_default_period(
+            now: datetime | None = None,
+            years_back: int = 20,
+            local_tz: timezone = sgt
+    ) -> dict:
+        """Return {'periodstart': ..., 'periodend': ...} exactly as the site's JS would.
+
+        `now` should be timezone-aware; default is the current time in `local_tz`.
+        `local_tz` must be the zone the *browser* would be in (the JS uses local day
+        boundaries, then converts to UTC).
+        """
+        now = (now or datetime.now(local_tz)).astimezone(local_tz)
+
+        # --- from: now - N years, start of local day, converted to UTC ---
+        start = _start_of_day(_add_years(now, -years_back)).astimezone(UTC)
+
+        # JS floor clamp: if from <= startOf('year') - N years (startOf day), from = that floor.
+        # Quirk: the floor is a LOCAL-mode moment, so on that branch it is formatted in LOCAL
+        # time, not UTC. Only reachable on 1 Jan (local); not seen in the HARs.
+        floor = _start_of_day(_add_years(now.replace(month=1, day=1), -years_back))
+        start_str = (floor if start <= floor.astimezone(UTC) else start).strftime(timezone_fmt)
+
+        # --- to: end of local day (23:59:59.999), converted to UTC; ms dropped by format ---
+        end_str = _end_of_day(now).astimezone(UTC).strftime(timezone_fmt)
+
+        return {"periodstart": start_str, "periodend": end_str}
+
+    def get_sgx_announcements(
+            start: int,
+            size: int
+    ) -> dict:
+        session = requests.Session(impersonate="chrome")
+        headers = {
+            "Origin": "https://www.sgx.com",
+            "Referer": "https://www.sgx.com/",
+        }
+        period_dict = sgx_default_period()
+        req_params = {
+            "periodstart": period_dict["periodstart"],
+            "periodend": period_dict["periodend"],
+            "pagestart": start,
+            "pagesize": size,
+        }
+
+        token = get_sgx_token()
+        request = session.get(
+            url="https://api.sgx.com/announcements/v1.1/",
+            params=req_params,
+            headers={**headers, "Authorizationtoken": token}
+        )
+        logger.info(f"Sent request to {request.url}")
+        logger.info(f"Headers sent: {request.request.headers}")
+        if request.status_code in (401, 403):
+            logger.info("Authentication to announcement endpoint rejected, retrying.")
+            return get_sgx_announcements(start, size)
+        request.raise_for_status()
+        return request.json()
+
+    page_start: int = 0
+    page_size: int = 20
+    count = 0
+    last_page: bool = False
+    logger.info("Starting scrape for SGX via JSON API.")
+    while not last_page:
+        logger.info("Retrieving announcements...")
+        announcement_data = get_sgx_announcements(
+            start=page_start,
+            size=page_size
+        )
+        logger.info("JSON retrieved.")
+        for announcement in announcement_data["data"]:
+            announcement_date = datetime.fromtimestamp(
+                announcement["broadcast_date_time"]/1000,
+                tz=UTC
+            )
+            title = announcement["title"]
+            issuer_name = announcement["issuer_name"]
+            security_name = announcement["security_name"]
+            relevant_keywords: list[str] = [
+                keyword
+                for keyword in keywords
+                if keyword in f"{title}{issuer_name}{security_name}".upper()
+            ]
+            news_info: NewsInformation = NewsInformation(
+                news_link=announcement["url"],
+                news_date=announcement_date,
+                news_title=announcement["title"],
+                retrieved_at=datetime.now(GMT_PLUS_7),
+                relevant_keywords=relevant_keywords
+                if len(relevant_keywords) > 0
+                else [""],
+            )
+            if check_run_done(news_info):
+                last_page = True
+            if news_info.relevant_keywords != [""]:
+                write_info_to_csv(news_info)
+            count += 1
+            if last_page:
+                break
+        if not last_page:
+            logger.info(
+                f"Not at end of relevant announcements for SGX after {count} docs scraped, going to next page."
+            )
+        page_start += 1
+    logger.info(f"Done scraping SGX, scraped total of {count} announcements")
