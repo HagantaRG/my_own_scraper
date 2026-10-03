@@ -1,5 +1,6 @@
 import csv
 import logging
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from os import makedirs, path
 
@@ -22,6 +23,29 @@ RUN_DATA_HEADERS: list[str] = [
     "error_message",
 ]
 
+class RunTally(Counter):
+    TOTAL = "total"
+    RELEVANT = "relevant"
+    _ALLOWED = {TOTAL, RELEVANT}  # noqa: RUF012
+
+    def __init__(self) -> None:
+        super().__init__(total=0, relevant=0)
+
+    def __setitem__(self, key: str, value: int) -> None:
+        if key not in self._ALLOWED:
+            raise KeyError(f"Unknown tally key: {key!r}")
+        super().__setitem__(key, value)
+
+    def __missing__(self, key: str) -> int:
+        raise KeyError(key)
+
+    @property
+    def total_count(self) -> int:
+        return self[self.TOTAL]
+
+    @property
+    def relevant_count(self) -> int:
+        return self[self.RELEVANT]
 
 def check_link_parsed_csv(news: NewsInformation) -> bool:
     if not path.isfile(NEWS_DATA_PATH):
@@ -36,7 +60,6 @@ def check_link_parsed_csv(news: NewsInformation) -> bool:
             if row["link"] == news.news_link and row["title"] == news.news_title:
                 return True
     return False
-
 
 def write_info_to_csv(info: NewsInformation) -> None:
     makedirs(f"{DATA_FOLDER}", exist_ok=True)
@@ -79,3 +102,44 @@ def check_run_done(news: NewsInformation) -> bool:
         )
         return True
     return False
+
+def log_run_results(
+        scrape_name: str,
+        tally: RunTally
+) -> None:
+    logger.info(
+        f"Done scraping {scrape_name}, "
+        f"scraped total of {tally.total_count} announcements."
+        f" Found {tally.relevant_count} relevant announcements."
+    )
+
+def parse_announcement(  # noqa: PLR0913, PLR0917
+        search_str: str,
+        keywords: list[str],
+        announcement_link: str,
+        announcement_date: datetime,
+        announcement_title: str,
+        tally: RunTally
+) -> NewsInformation | None:
+    relevant_keywords: list[str] = [
+        keyword
+        for keyword in keywords
+        if keyword in search_str.upper()
+    ]
+
+    news_info: NewsInformation = NewsInformation(
+        news_link=announcement_link,
+        news_date=announcement_date,
+        news_title=announcement_title,
+        retrieved_at=datetime.now(GMT_PLUS_7),
+        relevant_keywords=relevant_keywords if len(relevant_keywords) > 0 else None,
+    )
+
+    if check_run_done(news_info):
+        return None
+
+    if news_info.relevant_keywords is not None:
+        write_info_to_csv(news_info)
+        tally.relevant_count += 1
+    tally.total_count += 1
+    return news_info

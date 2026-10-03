@@ -10,7 +10,7 @@ class NewsInformation:
     news_title: str
     news_date: datetime
     news_location: int
-    relevant_keywords: list[str]
+    relevant_keywords: list[str]|None
     retrieved_at: datetime
 
     def __init__(  # noqa: PLR0913, PLR0917

@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta, timezone
 from json import loads
 from zoneinfo import ZoneInfo
 
-from curl_cffi import requests
+from curl_cffi import requests as cffi_requests
 from requests import get
 from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
@@ -15,8 +15,11 @@ from selenium.webdriver.support.wait import WebDriverWait
 from seleniumbase import Driver
 from seleniumbase.core.sb_driver import WebDriver
 
-from src.utils.news_utils import NewsInformation
-from src.utils.scraper_utils import check_run_done, write_info_to_csv
+from src.scrapers.helpers import (
+    RunTally,
+    log_run_results,
+    parse_announcement,
+)
 
 logger = logging.getLogger(__name__)
 GMT_PLUS_7 = timezone(timedelta(hours=7))
@@ -29,13 +32,18 @@ SHANGHAI_TIME = ZoneInfo("Asia/Shanghai")
 # Defines max retries for all retry-supporting steps.
 max_tries: int = 5
 
+
+
+
+
+
 def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
     keywords: list[str] = sheet_dict["keywords"]
-    count = 0
     scrape_link: str = (
         "https://www1.hkexnews.hk/listedco/listconews/index/lci.html?lang=en"
     )
     driver = Driver(uc=True, headless=True)
+    tally = RunTally()
     try:
         logger.info(f"Starting scrape for {scrape_link}")
         driver.get(scrape_link)
@@ -121,40 +129,26 @@ def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
                 announcement_details[0].text, "%d/%m/%Y %H:%M"
             ).replace(tzinfo=HONG_KONG_TIME)
 
-            relevant_keywords: list[str] = [
-                keyword
-                for keyword in keywords
-                if keyword in f"{announcement_title}{announcement_stock_name}".upper()
-            ]
-
-            news_info: NewsInformation = NewsInformation(
-                news_link=announcement_link,
-                news_date=announcement_date,
-                news_title=announcement_title,
-                retrieved_at=datetime.now(GMT_PLUS_7),
-                relevant_keywords=relevant_keywords
-                if len(relevant_keywords) > 0
-                else [""],
+            news_info = parse_announcement(
+                keywords=keywords,
+                search_str=f"{announcement_title}{announcement_stock_name}",
+                announcement_link = announcement_link,
+                announcement_date=announcement_date,
+                announcement_title=announcement_title,
+                tally=tally
             )
-
-            if check_run_done(news_info):
+            if news_info is None:
                 break
-
-            if news_info.relevant_keywords != [""]:
-                write_info_to_csv(news_info)
-
-            count += 1
-        logger.info(f"Done scraping HKX, scraped total of {count} announcements")
+        log_run_results("HKX", tally=tally)
     finally:
         driver.quit()
-
 
 def scrape_sgx(sheet_dict: dict[str, list[str]]) -> None:
     keywords: list[str] = sheet_dict["keywords"]
     page_num: int = 1
     last_page: bool = False
     driver = Driver(uc=True, headless=True)
-    count: int = 0
+    tally = RunTally()
     try:
         while not last_page:
             scrape_link: str = f"https://www.sgx.com/securities/company-announcements?page={page_num}&pagesize=200"
@@ -178,52 +172,41 @@ def scrape_sgx(sheet_dict: dict[str, list[str]]) -> None:
                 ).replace(tzinfo=SINGAPORE_TIME)
                 issuer_name: str = announcement_data[1].text
                 security_name: str = announcement_data[2].text
-                title: str = announcement_data[3].text
-                logger.debug(f"Looking through {title}{issuer_name}{security_name}")
-                link: str = (
+                announcement_title: str = announcement_data[3].text
+                logger.debug(f"Looking through {announcement_title}{issuer_name}{security_name}")
+                announcement_link: str = (
                     announcement_data[3]
                     .find_element(By.TAG_NAME, "a")
                     .get_attribute("href")
                 )
-                relevant_keywords: list[str] = [
-                    keyword
-                    for keyword in keywords
-                    if keyword in f"{title}{issuer_name}{security_name}".upper()
-                ]
-                news_info: NewsInformation = NewsInformation(
-                    news_link=link,
-                    news_date=announcement_date,
-                    news_title=title,
-                    retrieved_at=datetime.now(GMT_PLUS_7),
-                    relevant_keywords=relevant_keywords
-                    if len(relevant_keywords) > 0
-                    else [""],
-                )
 
-                if check_run_done(news_info):
+                news_info = parse_announcement(
+                    keywords=keywords,
+                    search_str=f"{announcement_title}{issuer_name}{security_name}",
+                    announcement_link=announcement_link,
+                    announcement_date=announcement_date,
+                    announcement_title=announcement_title,
+                    tally=tally
+                )
+                if news_info is None:
                     last_page = True
-                if news_info.relevant_keywords != [""]:
-                    write_info_to_csv(news_info)
-                count += 1
-                if last_page:
                     break
             if not last_page:
                 logger.info(
-                    f"Not at end of relevant announcements for SGX after {count} docs scraped, going to next page."
+                    f"Not at end of relevant announcements for SGX after {tally.total_count} docs scraped, going to next page."
                 )
                 page_num += 1
-        logger.info(f"Done scraping SGX, scraped total of {count} announcements")
+        log_run_results("SGX", tally=tally)
     finally:
         driver.quit()
-
 
 def scrape_bursa_my(sheet_dict: dict[str, list[str]]) -> None:
     ## Use their API, you can probably access it.
     keywords: list[str] = sheet_dict["keywords"]
-    count = 0
     current_time: int = int(datetime.now(GMT_PLUS_7).timestamp())
     page_count: int = 0
     last_page: bool = False
+    tally = RunTally()
     driver = Driver(uc=True, headless=True)
     try:
         logger.info("Starting scrape for https://www.bursamalaysia.com/")
@@ -239,48 +222,35 @@ def scrape_bursa_my(sheet_dict: dict[str, list[str]]) -> None:
             for entry in data:
                 date_str: str = entry[1].split("d-none'>")[1].split("</div>")[0]
                 link_ext: str = entry[3].split("href='")[1].split("' target=")[0]
-                link: str = f"https://bursamalaysia.com{link_ext}"
+                announcement_link: str = f"https://bursamalaysia.com{link_ext}"
                 company_name: str = (
                     entry[2].split("_blank>")[1].split("</a")[0]
                     if entry[2] != "-"
                     else ""
                 )
-                title: str = entry[3].split("_blank>")[1].split("</a")[0]
-                relevant_keywords: list[str] = [
-                    keyword
-                    for keyword in keywords
-                    if keyword in f"{title}{company_name}".upper()
-                ]
+                announcement_title: str = entry[3].split("_blank>")[1].split("</a")[0]
                 announcement_date: datetime = datetime.strptime(
                     date_str, "%d %b %Y"
                 ).replace(tzinfo=KUALA_LUMPUR_TIME)
-                news_info: NewsInformation = NewsInformation(
-                    news_link=link,
-                    news_date=announcement_date,
-                    news_title=title,
-                    retrieved_at=datetime.now(GMT_PLUS_7),
-                    relevant_keywords=relevant_keywords
-                    if len(relevant_keywords) > 0
-                    else [""],
-                )
 
-                if check_run_done(news_info):
+                news_info = parse_announcement(
+                    keywords=keywords,
+                    search_str=f"{announcement_title}{company_name}",
+                    announcement_link=announcement_link,
+                    announcement_date=announcement_date,
+                    announcement_title=announcement_title,
+                    tally=tally
+                )
+                if news_info is None:
                     last_page = True
-                if news_info.relevant_keywords != [""]:
-                    write_info_to_csv(news_info)
-                if last_page:
                     break
-                count += 1
             if not last_page:
                 logger.info(
-                    f"Not at end of relevant announcements for Malaysia after {count} docs scraped, going to next page."
+                    f"Not at end of relevant announcements for Malaysia after {tally.total_count} docs scraped, going to next page."
                 )
-        logger.info(
-            f"Done scraping Malaysian exchange, scraped total of {count} announcements"
-        )
+        log_run_results("Bursa MY", tally=tally)
     finally:
         driver.quit()
-
 
 def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
     keywords: list[str] = sheet_dict["keywords"]
@@ -288,7 +258,7 @@ def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
     page_num: int = 1
     last_page: bool = False
     driver = Driver(uc=True, headless=True)
-    count: int = 0
+    tally = RunTally()
     scrape_link: str = "https://www.szse.cn/disclosure/listed/notice/index.html"
     logger.info(f"Starting scrape for {scrape_link}")
     try:
@@ -324,46 +294,34 @@ def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
                 announcement_date: datetime = datetime.strptime(
                     date_text.split(" ", maxsplit=1)[0], "%Y-%m-%d"
                 ).replace(tzinfo=SHENZHEN_TIME)
+                relevant_stock_codes: list[str] = [
+                    stock_code
+                    for stock_code in stock_codes
+                    if stock_code == announcement_stock_code
+                ]
                 for file in announcement_files:
-                    count += 1
                     announcement_title: str = file.get_attribute("data-title")
                     announcement_link: str = file.get_attribute("href")
-                    search_str: str = f"{announcement_title}{announcement_stock_code}{announcement_stock_name}"
-                    relevant_keywords: list[str] = [
-                        keyword
-                        for keyword in keywords
-                        if keyword in f"{search_str}".upper()
-                    ]
-                    relevant_stock_codes: list[str] = [
-                        stock_code
-                        for stock_code in stock_codes
-                        if stock_code == announcement_stock_code
-                    ]
-                    relevant_keywords += relevant_stock_codes
-                    news_info: NewsInformation = NewsInformation(
-                        news_link=announcement_link,
-                        news_date=announcement_date,
-                        news_title=announcement_title,
-                        retrieved_at=datetime.now(GMT_PLUS_7),
-                        relevant_keywords=relevant_keywords
-                        if len(relevant_keywords) > 0
-                        else [""],
+                    parse_announcement(
+                        keywords=keywords + relevant_stock_codes,
+                        search_str=f"{announcement_title}{announcement_stock_code}{announcement_stock_name}",
+                        announcement_link=announcement_link,
+                        announcement_date=announcement_date,
+                        announcement_title=announcement_title,
+                        tally=tally
                     )
-                    if news_info.relevant_keywords != [""]:
-                        write_info_to_csv(news_info)
                     logger.debug(
                         f"{announcement_stock_code} {announcement_title} {announcement_link}"
                     )
-
             paginator: WebElement = driver.find_element(By.ID, "paginator")
             this_page: WebElement = paginator.find_element(
                 By.CSS_SELECTOR, f'a[data-pi="{page_num - 1}"]'
             )
             if "last" in this_page.get_attribute("class"):
-                logger.info("Last page of SZSE reached. Ending.")
+                log_run_results("SZSE", tally=tally)
                 break
             logger.info(
-                f"Not at end of relevant announcements for SZSE after {count} docs scraped, going to next page."
+                f"Not at end of relevant announcements for SZSE after {tally.total_count} docs scraped, going to next page."
             )
             page_num += 1
             paginator.find_element(By.CSS_SELECTOR, ".next > a").click()
@@ -371,10 +329,10 @@ def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
     finally:
         driver.quit()
 
-
 def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
     keywords: list[str] = sheet_dict["keywords"]
     stock_codes: list[str] = sheet_dict["stock_code_cn"]
+    tally = RunTally()
     page_num: int = 0
     last_page: bool = False
     driver = Driver(
@@ -413,7 +371,6 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
         )
         three_day_button.click()
         WebDriverWait(driver, 30).until(EC.staleness_of(table_entry))
-        count: int = 0
         while not last_page:
             page_num += 1
             logger.info(f"SSE page {page_num} scraping...")
@@ -426,9 +383,7 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
             announcement_stock_name: str = "N/A"
             announcement_stock_code: str = "N/A"
             for announcement in announcements:
-                count += 1
                 ann_class: str = announcement.get_attribute("class")
-                logger.debug(f"{count} {ann_class}")
                 announcement_details: list[WebElement] = announcement.find_elements(
                     By.TAG_NAME, "td"
                 )
@@ -453,38 +408,29 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
                 announcement_title: str = (
                     announcement_details[2].find_element(By.TAG_NAME, "a").text
                 )
-                search_str: str = f"{announcement_title}{announcement_stock_code}{announcement_stock_name}"
-                relevant_keywords: list[str] = [
-                    keyword for keyword in keywords if keyword in f"{search_str}".upper()
-                ]
                 relevant_stock_codes: list[str] = [
                     stock_code
                     for stock_code in stock_codes
                     if stock_code == announcement_stock_code
                 ]
-                relevant_keywords += relevant_stock_codes
-                news_info: NewsInformation = NewsInformation(
-                    news_link=announcement_link,
-                    news_date=announcement_date,
-                    news_title=announcement_title,
-                    retrieved_at=datetime.now(GMT_PLUS_7),
-                    relevant_keywords=relevant_keywords
-                    if len(relevant_keywords) > 0
-                    else [""],
+                news_info = parse_announcement(
+                    keywords=keywords + relevant_stock_codes,
+                    search_str=f"{announcement_title}{announcement_stock_code}{announcement_stock_name}",
+                    announcement_link=announcement_link,
+                    announcement_date=announcement_date,
+                    announcement_title=announcement_title,
+                    tally=tally
                 )
                 logger.debug(f"{announcement_title}")
                 if "last_multiple" in ann_class:
                     announcement_stock_name: str = "N/A"
                     announcement_stock_code: str = "N/A"
-                if check_run_done(news_info):
+                if news_info is None:
                     last_page = True
-                if news_info.relevant_keywords != [""]:
-                    write_info_to_csv(news_info)
-                if last_page:
                     break
             if not last_page:
                 logger.info(
-                    f"Not at end of relevant announcements for SSE after {count} docs scraped, going to next page."
+                    f"Not at end of relevant announcements for SSE after {tally.total_count} docs scraped, going to next page."
                 )
                 next_button: WebElement = driver.find_element(
                     By.CLASS_NAME, "next"
@@ -492,7 +438,7 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
                 next_button.click()
                 WebDriverWait(driver, 30).until(EC.staleness_of(announcements[0]))
             else:
-                logger.info("Last page of SSE reached. Ending.")
+                log_run_results("SSE", tally=tally)
     finally:
         driver.quit()
 
@@ -555,7 +501,8 @@ def scrape_sgx_json(sheet_dict: dict[str, list[str]]) -> None:
             start: int,
             size: int
     ) -> dict:
-        session = requests.Session(impersonate="chrome")
+        # noinspection PyArgumentList
+        session = cffi_requests.Session(impersonate="chrome")
         headers = {
             "Origin": "https://www.sgx.com",
             "Referer": "https://www.sgx.com/",
@@ -583,9 +530,9 @@ def scrape_sgx_json(sheet_dict: dict[str, list[str]]) -> None:
         return request.json()
 
     page_start: int = 0
-    page_size: int = 20
-    count = 0
+    page_size: int = 200
     last_page: bool = False
+    tally: RunTally = RunTally()
     logger.info("Starting scrape for SGX via JSON API.")
     while not last_page:
         logger.info("Retrieving announcements...")
@@ -602,30 +549,22 @@ def scrape_sgx_json(sheet_dict: dict[str, list[str]]) -> None:
             title = announcement["title"]
             issuer_name = announcement["issuer_name"]
             security_name = announcement["security_name"]
-            relevant_keywords: list[str] = [
-                keyword
-                for keyword in keywords
-                if keyword in f"{title}{issuer_name}{security_name}".upper()
-            ]
-            news_info: NewsInformation = NewsInformation(
-                news_link=announcement["url"],
-                news_date=announcement_date,
-                news_title=announcement["title"],
-                retrieved_at=datetime.now(GMT_PLUS_7),
-                relevant_keywords=relevant_keywords
-                if len(relevant_keywords) > 0
-                else [""],
+            announcement_link = announcement["url"]
+            announcement_title = announcement["title"]
+            news_info = parse_announcement(
+                keywords=keywords,
+                search_str=f"{title}{issuer_name}{security_name}",
+                announcement_link=announcement_link,
+                announcement_date=announcement_date,
+                announcement_title=announcement_title,
+                tally=tally
             )
-            if check_run_done(news_info):
+            if news_info is None:
                 last_page = True
-            if news_info.relevant_keywords != [""]:
-                write_info_to_csv(news_info)
-            count += 1
-            if last_page:
                 break
         if not last_page:
             logger.info(
-                f"Not at end of relevant announcements for SGX after {count} docs scraped, going to next page."
+                f"Not at end of relevant announcements for SGX after {tally.total_count} docs scraped, going to next page."
             )
         page_start += 1
-    logger.info(f"Done scraping SGX, scraped total of {count} announcements")
+    log_run_results("SGX", tally=tally)

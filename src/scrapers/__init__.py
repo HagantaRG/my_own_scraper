@@ -14,7 +14,7 @@ from selenium.common.exceptions import WebDriverException
 from urllib3.exceptions import MaxRetryError, ReadTimeoutError
 
 # Custom libs
-from src.gmail_client import GoogleClient
+from src.google_client import GoogleClient
 from src.scrapers import exchange_scrapers as scrapers
 from src.scrapers.google_scrape import SearchResult, google_search_scrape
 from src.smtp_functions import send_email
@@ -41,7 +41,6 @@ ACCEPTABLE_EXCEPTIONS: tuple[type[Exception], ...] = (
     ReadTimeoutError,
     MaxRetryError
 )
-
 
 def _is_seleniumbase_cdc_none_error(exc: TypeError) -> bool:
     expected_message = "object of type 'NoneType' has no len()"
@@ -347,7 +346,10 @@ class ScrapeOrchestrator:
                 "Exchange scrapes finished; preparing the results email.", "EMAIL"
             )
             subject = f"Relevant articles found for {datetime.now(GMT_PLUS_7).strftime('%Y-%m-%d')}"
-            body = email_utils.construct_webscraper_email(failed_jobs)
+            body = email_utils.construct_webscraper_email(
+                failed_jobs,
+                email_settings=self.email_settings
+            )
             send_email(
                 subject=subject,
                 body=body,
