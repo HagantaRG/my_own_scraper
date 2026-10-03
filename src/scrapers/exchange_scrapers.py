@@ -32,11 +32,6 @@ SHANGHAI_TIME = ZoneInfo("Asia/Shanghai")
 # Defines max retries for all retry-supporting steps.
 max_tries: int = 5
 
-
-
-
-
-
 def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
     keywords: list[str] = sheet_dict["keywords"]
     scrape_link: str = (
@@ -140,63 +135,6 @@ def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
             if news_info is None:
                 break
         log_run_results("HKX", tally=tally)
-    finally:
-        driver.quit()
-
-def scrape_sgx(sheet_dict: dict[str, list[str]]) -> None:
-    keywords: list[str] = sheet_dict["keywords"]
-    page_num: int = 1
-    last_page: bool = False
-    driver = Driver(uc=True, headless=True)
-    tally = RunTally()
-    try:
-        while not last_page:
-            scrape_link: str = f"https://www.sgx.com/securities/company-announcements?page={page_num}&pagesize=200"
-            logger.info(f"Starting scrape for {scrape_link}")
-            driver.get(scrape_link)
-            WebDriverWait(driver, 60).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr > td"))
-            )
-            logger.info(f"Retrieving announcements for {scrape_link}")
-            announcements: list[WebElement] = driver.find_elements(
-                By.CSS_SELECTOR, "tbody > tr"
-            )
-
-            logger.info(f"Found {len(announcements)} announcements, parsing...")
-            for announcement in announcements:
-                announcement_data: list[WebElement] = announcement.find_elements(
-                    By.TAG_NAME, "td"
-                )
-                announcement_date: datetime = datetime.strptime(
-                    announcement_data[0].text, "%d %b %Y %H:%M %p"
-                ).replace(tzinfo=SINGAPORE_TIME)
-                issuer_name: str = announcement_data[1].text
-                security_name: str = announcement_data[2].text
-                announcement_title: str = announcement_data[3].text
-                logger.debug(f"Looking through {announcement_title}{issuer_name}{security_name}")
-                announcement_link: str = (
-                    announcement_data[3]
-                    .find_element(By.TAG_NAME, "a")
-                    .get_attribute("href")
-                )
-
-                news_info = parse_announcement(
-                    keywords=keywords,
-                    search_str=f"{announcement_title}{issuer_name}{security_name}",
-                    announcement_link=announcement_link,
-                    announcement_date=announcement_date,
-                    announcement_title=announcement_title,
-                    tally=tally
-                )
-                if news_info is None:
-                    last_page = True
-                    break
-            if not last_page:
-                logger.info(
-                    f"Not at end of relevant announcements for SGX after {tally.total_count} docs scraped, going to next page."
-                )
-                page_num += 1
-        log_run_results("SGX", tally=tally)
     finally:
         driver.quit()
 
