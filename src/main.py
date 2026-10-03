@@ -1,4 +1,7 @@
 # Python libs
+import warnings
+
+warnings.filterwarnings("ignore", category=SyntaxWarning, module="translators")
 import logging
 import sys
 from logging.handlers import TimedRotatingFileHandler

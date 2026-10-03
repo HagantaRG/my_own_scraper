@@ -39,14 +39,6 @@ class RunTally(Counter):
     def __missing__(self, key: str) -> int:
         raise KeyError(key)
 
-    @property
-    def total_count(self) -> int:
-        return self[self.TOTAL]
-
-    @property
-    def relevant_count(self) -> int:
-        return self[self.RELEVANT]
-
 def check_link_parsed_csv(news: NewsInformation) -> bool:
     if not path.isfile(NEWS_DATA_PATH):
         return False
@@ -109,8 +101,8 @@ def log_run_results(
 ) -> None:
     logger.info(
         f"Done scraping {scrape_name}, "
-        f"scraped total of {tally.total_count} announcements."
-        f" Found {tally.relevant_count} relevant announcements."
+        f"scraped total of {tally[RunTally.TOTAL]} announcements."
+        f" Found {tally[RunTally.RELEVANT]} relevant announcements."
     )
 
 def parse_announcement(  # noqa: PLR0913, PLR0917
@@ -140,6 +132,6 @@ def parse_announcement(  # noqa: PLR0913, PLR0917
 
     if news_info.relevant_keywords is not None:
         write_info_to_csv(news_info)
-        tally.relevant_count += 1
-    tally.total_count += 1
+        tally[RunTally.RELEVANT] += 1
+    tally[RunTally.TOTAL] += 1
     return news_info

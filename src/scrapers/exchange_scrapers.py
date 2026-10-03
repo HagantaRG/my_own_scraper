@@ -38,7 +38,7 @@ def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
         "https://www1.hkexnews.hk/listedco/listconews/index/lci.html?lang=en"
     )
     driver = Driver(uc=True, headless=True)
-    tally = RunTally()
+    tally: RunTally = RunTally()
     try:
         logger.info(f"Starting scrape for {scrape_link}")
         driver.get(scrape_link)
@@ -144,7 +144,7 @@ def scrape_bursa_my(sheet_dict: dict[str, list[str]]) -> None:
     current_time: int = int(datetime.now(GMT_PLUS_7).timestamp())
     page_count: int = 0
     last_page: bool = False
-    tally = RunTally()
+    tally: RunTally = RunTally()
     driver = Driver(uc=True, headless=True)
     try:
         logger.info("Starting scrape for https://www.bursamalaysia.com/")
@@ -184,7 +184,7 @@ def scrape_bursa_my(sheet_dict: dict[str, list[str]]) -> None:
                     break
             if not last_page:
                 logger.info(
-                    f"Not at end of relevant announcements for Malaysia after {tally.total_count} docs scraped, going to next page."
+                    f"Not at end of relevant announcements for Malaysia after {tally[RunTally.TOTAL]} docs scraped, going to next page."
                 )
         log_run_results("Bursa MY", tally=tally)
     finally:
@@ -196,7 +196,7 @@ def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
     page_num: int = 1
     last_page: bool = False
     driver = Driver(uc=True, headless=True)
-    tally = RunTally()
+    tally: RunTally = RunTally()
     scrape_link: str = "https://www.szse.cn/disclosure/listed/notice/index.html"
     logger.info(f"Starting scrape for {scrape_link}")
     try:
@@ -259,7 +259,7 @@ def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
                 log_run_results("SZSE", tally=tally)
                 break
             logger.info(
-                f"Not at end of relevant announcements for SZSE after {tally.total_count} docs scraped, going to next page."
+                f"Not at end of relevant announcements for SZSE after {tally[RunTally.TOTAL]} docs scraped, going to next page."
             )
             page_num += 1
             paginator.find_element(By.CSS_SELECTOR, ".next > a").click()
@@ -270,7 +270,7 @@ def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
 def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
     keywords: list[str] = sheet_dict["keywords"]
     stock_codes: list[str] = sheet_dict["stock_code_cn"]
-    tally = RunTally()
+    tally: RunTally = RunTally()
     page_num: int = 0
     last_page: bool = False
     driver = Driver(
@@ -368,7 +368,7 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
                     break
             if not last_page:
                 logger.info(
-                    f"Not at end of relevant announcements for SSE after {tally.total_count} docs scraped, going to next page."
+                    f"Not at end of relevant announcements for SSE after {tally[RunTally.TOTAL]} docs scraped, going to next page."
                 )
                 next_button: WebElement = driver.find_element(
                     By.CLASS_NAME, "next"
@@ -502,7 +502,7 @@ def scrape_sgx_json(sheet_dict: dict[str, list[str]]) -> None:
                 break
         if not last_page:
             logger.info(
-                f"Not at end of relevant announcements for SGX after {tally.total_count} docs scraped, going to next page."
+                f"Not at end of relevant announcements for SGX after {tally[RunTally.TOTAL]} docs scraped, going to next page."
             )
         page_start += 1
     log_run_results("SGX", tally=tally)

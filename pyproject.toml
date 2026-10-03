@@ -35,7 +35,7 @@ src = ["src"]
 # Enable the project-wide checks currently used during cleanup.
 lint.select = ["E", "F", "I", "UP", "SIM", "DTZ", "LOG", "RET", "BLE", "PL", "PIE", "C", "RUF"]
 lint.ignore = ["E501"]
-lint.per-file-ignores = { "src/scrapers/exchange_scrapers.py" = ["C901", "PLR0915"] }
+lint.per-file-ignores = { "src/scrapers/exchange_scrapers.py" = ["C901", "PLR0915"], "src/main.py" = ["E402"] }
 
 # Keep formatting and import optimization enabled through Ruff.
 format.quote-style = "double"
