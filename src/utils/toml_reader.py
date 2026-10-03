@@ -21,7 +21,7 @@ DIR: Final[Path] = Path(__file__).parent
 
 
 # Define variables
-TOMLDecodeError = TOMLDecodeError
+TOMLDecodeError = TOMLDecodeError  # noqa: PLW0127
 """An error raised if a document is not valid TOML."""
 
 

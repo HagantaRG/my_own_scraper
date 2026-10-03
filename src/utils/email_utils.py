@@ -5,6 +5,7 @@ from pathlib import Path
 from string import Template
 
 from dateutil import parser
+from translators import translate_text
 
 from src.scrapers.google_scrape import SearchResult
 from src.utils.filepaths import DATA_FOLDER, SOURCE_FOLDER
@@ -29,9 +30,20 @@ def _article_row(link: str, title: str, metadata: str = "") -> str:
         f"{escape(title)}</a>{metadata_html}</div>"
     )
 
+def translate_simplified_mandarin(text: str) -> str:
+    return translate_text(
+        query_text=text,
+        from_language="zh",
+        to_language="en",
+    )
 
-def construct_webscraper_email(failed_jobs: list[str]) -> str:
+
+def construct_webscraper_email(
+        failed_jobs: list[str],
+        email_settings: dict[str, str | list],
+) -> str:
     site_dict: dict[str, list[list[str]]] = {}
+    chinese_sites: list[str] = email_settings["simplified-chinese-sites"]
     with (DATA_FOLDER / "news_data.csv").open(newline="", encoding="utf-8") as csvfile:
         reader: csv.DictReader = csv.DictReader(csvfile, fieldnames=csv_headers)
         for row in reader:
@@ -43,6 +55,8 @@ def construct_webscraper_email(failed_jobs: list[str]) -> str:
             site_name = (
                 row["link"].split("//", maxsplit=1)[-1].split("/", maxsplit=1)[0]
             )
+            if site_name in chinese_sites:
+                row["title"] = translate_simplified_mandarin(row["title"])
             site_dict.setdefault(site_name, []).append(
                 [row["link"], row["title"], row["date"], row["keywords"]]
             )

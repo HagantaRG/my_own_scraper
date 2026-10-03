@@ -13,7 +13,7 @@ class NewsInformation:
     relevant_keywords: list[str]
     retrieved_at: datetime
 
-    def __init__(
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         news_link: str,
         news_title: str,

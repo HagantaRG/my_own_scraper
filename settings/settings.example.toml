@@ -6,6 +6,7 @@ sender = "sender@gmail.com"
 recipients = ["recipient@example.com"]
 admin = ["admin@example.com"]
 password = "gmail-app-password"
+simplified-chinese-sites = ["wwww.chinese-exchange.com"]
 
 [keyword-document]
 sheet-id = "google-spreadsheet-id"
