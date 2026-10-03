@@ -5,7 +5,7 @@ import traceback
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from csv import DictReader
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from types import TracebackType
 
@@ -20,11 +20,11 @@ from src.scrapers.google_scrape import SearchResult, google_search_scrape
 from src.smtp_functions import send_email
 from src.utils import email_utils, toml_reader
 from src.utils.cli_utils import ProgressBar, Spinner, print_cli, print_section
+from src.utils.constants import DEFAULT_MAX_TRIES, GMT_PLUS_7
 from src.utils.filepaths import PROJECT_FOLDER, SETTINGS_FOLDER
 from src.utils.toml_reader import Toml
 
 logger = logging.getLogger(__name__)
-GMT_PLUS_7 = timezone(timedelta(hours=7))
 
 
 class UnexpectedPageFormatError(Exception):
@@ -179,7 +179,7 @@ class ScrapeOrchestrator:
 
     def __init__(
         self,
-        max_tries: int = 5,
+        max_tries: int = DEFAULT_MAX_TRIES,
     ):
         self.max_tries = max_tries
 

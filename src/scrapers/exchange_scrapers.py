@@ -1,9 +1,8 @@
 import calendar
 import codecs
 import logging
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, tzinfo
 from json import loads
-from zoneinfo import ZoneInfo
 
 from curl_cffi import requests as cffi_requests
 from requests import get
@@ -20,17 +19,16 @@ from src.scrapers.helpers import (
     log_run_results,
     parse_announcement,
 )
+from src.utils.constants import (
+    CHINA_TIME,
+    DEFAULT_MAX_TRIES,
+    GMT_PLUS_7,
+    HONG_KONG_TIME,
+    KUALA_LUMPUR_TIME,
+    SINGAPORE_TIME,
+)
 
 logger = logging.getLogger(__name__)
-GMT_PLUS_7 = timezone(timedelta(hours=7))
-HONG_KONG_TIME = ZoneInfo("Asia/Hong_Kong")
-SINGAPORE_TIME = ZoneInfo("Asia/Singapore")
-KUALA_LUMPUR_TIME = ZoneInfo("Asia/Kuala_Lumpur")
-SHENZHEN_TIME = ZoneInfo("Asia/Shanghai")
-SHANGHAI_TIME = ZoneInfo("Asia/Shanghai")
-
-# Defines max retries for all retry-supporting steps.
-max_tries: int = 5
 
 def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
     keywords: list[str] = sheet_dict["keywords"]
@@ -231,7 +229,7 @@ def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
                 # This date extraction is because the Shenzhen stock exchange for some reason uses *TWO* datetime formats.
                 announcement_date: datetime = datetime.strptime(
                     date_text.split(" ", maxsplit=1)[0], "%Y-%m-%d"
-                ).replace(tzinfo=SHENZHEN_TIME)
+                ).replace(tzinfo=CHINA_TIME)
                 relevant_stock_codes: list[str] = [
                     stock_code
                     for stock_code in stock_codes
@@ -291,7 +289,7 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
         logger.info("Clicking button to get last three days of info...")
         date_range_button: WebElement = driver.find_element(By.CLASS_NAME, "range_date")
         click_try: int = 0
-        while click_try < max_tries:
+        while click_try < DEFAULT_MAX_TRIES:
             try:
                 click_try += 1
                 logger.debug(f"Clicking annoying button attempt {click_try}")
@@ -333,7 +331,7 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
                 date_text: str = announcement_details[5].text
                 announcement_date: datetime = datetime.strptime(
                     date_text, "%Y-%m-%d"
-                ).replace(tzinfo=SHANGHAI_TIME)
+                ).replace(tzinfo=CHINA_TIME)
                 if ann_class == "multiple_bag" or "last_multiple" in ann_class:
                     pass
                 else:
@@ -382,7 +380,6 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
 
 def scrape_sgx_json(sheet_dict: dict[str, list[str]]) -> None:
     timezone_fmt = "%Y%m%d_%H%M%S"
-    sgt = timezone(timedelta(hours=8))
     keywords: list[str] = sheet_dict["keywords"]
 
     def get_sgx_token() -> str:
@@ -411,7 +408,7 @@ def scrape_sgx_json(sheet_dict: dict[str, list[str]]) -> None:
     def sgx_default_period(
             now: datetime | None = None,
             years_back: int = 20,
-            local_tz: timezone = sgt
+            local_tz: tzinfo = SINGAPORE_TIME
     ) -> dict:
         """Return {'periodstart': ..., 'periodend': ...} exactly as the site's JS would.
 

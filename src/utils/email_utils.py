@@ -1,5 +1,5 @@
 import csv
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from html import escape
 from pathlib import Path
 from string import Template
@@ -8,10 +8,10 @@ from dateutil import parser
 from translators import translate_text
 
 from src.scrapers.google_scrape import SearchResult
+from src.utils.constants import GMT_PLUS_7
 from src.utils.filepaths import DATA_FOLDER, SOURCE_FOLDER
 
 csv_headers: list[str] = ["link", "title", "date", "keywords", "retrieved_at"]
-GMT_PLUS_7 = timezone(timedelta(hours=7))
 TEMPLATE_FOLDER: Path = SOURCE_FOLDER / "html_templates"
 
 

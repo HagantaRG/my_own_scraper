@@ -4,16 +4,18 @@ from email.mime.text import MIMEText
 from smtplib import SMTPException
 from time import sleep
 
+from src.utils.constants import DEFAULT_MAX_TRIES
+
 logger = logging.getLogger(__name__)
 
 
-def send_email(
+def send_email(  # noqa: PLR0913, PLR0917
     subject: str,
     body: str,
     sender: str,
     recipients: list[str],
     password: str,
-    max_tries: int = 5,
+    max_tries: int = DEFAULT_MAX_TRIES,
 ) -> None:
     tries: int = 0
     while tries <= max_tries:

@@ -2,7 +2,7 @@ import logging
 import random
 import urllib.parse
 from collections.abc import Callable, Generator
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from time import sleep
 
 from selenium.common.exceptions import WebDriverException
@@ -11,8 +11,9 @@ from selenium.webdriver.remote.webelement import WebElement
 from seleniumbase import Driver
 from seleniumbase.core.sb_driver import DriverMethods
 
+from src.utils.constants import GMT_PLUS_7
+
 logger = logging.getLogger(__name__)
-GMT_PLUS_7 = timezone(timedelta(hours=7))
 
 
 # N.B the important thing here really is that this thing will likely need to be updated like. Quarterly. Or something.
@@ -133,7 +134,6 @@ def run_search(
         f"End of results reached for {search_params['q']}, found {total_res} results."
     )
     return "End of results"
-
 
 def google_search_scrape(
     sheet_dict: dict[str, list[str]],

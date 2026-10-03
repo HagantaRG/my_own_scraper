@@ -1,16 +1,16 @@
 import csv
 import logging
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from os import makedirs, path
 
 from filelock import FileLock
 
+from src.utils.constants import GMT_PLUS_7
 from src.utils.filepaths import DATA_FOLDER
 from src.utils.news_utils import NewsInformation
 
 logger = logging.getLogger(__name__)
-GMT_PLUS_7 = timezone(timedelta(hours=7))
 NEWS_DATA_PATH = f"{DATA_FOLDER}/news_data.csv"
 NEWS_DATA_LOCK_PATH = f"{NEWS_DATA_PATH}.lock"
 NEWS_DATA_HEADERS: list[str] = ["link", "title", "date", "keywords", "retrieved_at"]
