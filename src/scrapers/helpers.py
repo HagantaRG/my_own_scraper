@@ -64,7 +64,7 @@ def write_info_to_csv(info: NewsInformation) -> None:
         writer = csv.DictWriter(csvfile, delimiter=",", fieldnames=NEWS_DATA_HEADERS)
         keyword_string: str = ""
 
-        if len(info.relevant_keywords) > 0:
+        if info.relevant_keywords:
             for keyword in info.relevant_keywords[0:-1]:
                 keyword_string += f"{keyword},"
             keyword_string += f"{info.relevant_keywords[-1]}"
