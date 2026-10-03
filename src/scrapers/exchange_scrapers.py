@@ -5,7 +5,6 @@ from datetime import UTC, datetime, timedelta, tzinfo
 from json import loads
 
 from curl_cffi import requests as cffi_requests
-from requests import get
 from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
@@ -381,17 +380,19 @@ def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
 def scrape_sgx_json(sheet_dict: dict[str, list[str]]) -> None:
     timezone_fmt = "%Y%m%d_%H%M%S"
     keywords: list[str] = sheet_dict["keywords"]
+    # noinspection PyArgumentList
+    session = cffi_requests.Session(impersonate="chrome")
 
     def get_sgx_token() -> str:
         req_params = {
             "queryId": "9c3e9f7f03300303a53a580b5a7e760732e5a320:we_chat_qr_validator"
         }
-        request = get(
+        response = session.get(
             url="https://api2.sgx.com/content-api/",
             params=req_params
         )
-        request.raise_for_status()
-        return codecs.decode(request.json()["data"]["qrValidator"], "rot13")
+        response.raise_for_status()
+        return codecs.decode(response.json()["data"]["qrValidator"], "rot13")
 
     def _add_years(dt: datetime, years: int) -> datetime:
         """moment().add(n, 'Y'): same month/day, clamped to month end (Feb 29 -> Feb 28)."""
@@ -436,8 +437,6 @@ def scrape_sgx_json(sheet_dict: dict[str, list[str]]) -> None:
             start: int,
             size: int
     ) -> dict:
-        # noinspection PyArgumentList
-        session = cffi_requests.Session(impersonate="chrome")
         headers = {
             "Origin": "https://www.sgx.com",
             "Referer": "https://www.sgx.com/",
@@ -451,18 +450,15 @@ def scrape_sgx_json(sheet_dict: dict[str, list[str]]) -> None:
         }
 
         token = get_sgx_token()
-        request = session.get(
+        response = session.get(
             url="https://api.sgx.com/announcements/v1.1/",
             params=req_params,
             headers={**headers, "Authorizationtoken": token}
         )
-        logger.info(f"Sent request to {request.url}")
-        logger.info(f"Headers sent: {request.request.headers}")
-        if request.status_code in (401, 403):
-            logger.info("Authentication to announcement endpoint rejected, retrying.")
-            return get_sgx_announcements(start, size)
-        request.raise_for_status()
-        return request.json()
+        logger.info(f"Sent request to {response.url}")
+        logger.info(f"Headers sent: {response.request.headers}")
+        response.raise_for_status()
+        return response.json()
 
     page_start: int = 0
     page_size: int = 200

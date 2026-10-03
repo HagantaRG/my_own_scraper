@@ -10,6 +10,7 @@ from pathlib import Path
 from types import TracebackType
 
 # Third party libs
+from curl_cffi.requests.exceptions import HTTPError, RequestException
 from selenium.common.exceptions import WebDriverException
 from urllib3.exceptions import MaxRetryError, ReadTimeoutError
 
@@ -39,7 +40,9 @@ ACCEPTABLE_EXCEPTIONS: tuple[type[Exception], ...] = (
     WebDriverException,
     UnexpectedPageFormatError,
     ReadTimeoutError,
-    MaxRetryError
+    MaxRetryError,
+    HTTPError,
+    RequestException
 )
 
 def _is_seleniumbase_cdc_none_error(exc: TypeError) -> bool:
@@ -76,7 +79,7 @@ def _run_with_retries[ResultT](  # noqa: C901
             logger.info(f"Running {job_name}, attempt {tries}")
             print_cli(f"{job_name}: attempt {tries}/{max_tries}", "RUN")
             return operation()
-        except (WebDriverException, ReadTimeoutError) as exc:
+        except ACCEPTABLE_EXCEPTIONS as exc:
             logger.exception(
                 f"{job_name} attempt {tries}/{max_tries} failed with a {type(exc).__name__} error",
             )
