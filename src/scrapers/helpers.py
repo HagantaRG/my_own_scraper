@@ -14,14 +14,6 @@ logger = logging.getLogger(__name__)
 NEWS_DATA_PATH = f"{DATA_FOLDER}/news_data.csv"
 NEWS_DATA_LOCK_PATH = f"{NEWS_DATA_PATH}.lock"
 NEWS_DATA_HEADERS: list[str] = ["link", "title", "date", "keywords", "retrieved_at"]
-RUN_DATA_HEADERS: list[str] = [
-    "job_name",
-    "start_time",
-    "end_time",
-    "duration",
-    "success",
-    "error_message",
-]
 
 class RunTally(Counter):
     TOTAL = "total"
@@ -113,6 +105,28 @@ def parse_announcement(  # noqa: PLR0913, PLR0917
         announcement_title: str,
         tally: RunTally
 ) -> NewsInformation | None:
+    news_info: NewsInformation = build_announcement(
+        search_str=search_str,
+        keywords=keywords,
+        announcement_link=announcement_link,
+        announcement_date=announcement_date,
+        announcement_title=announcement_title,
+    )
+    if check_run_done(news_info):
+        return None
+    write_announcement(
+        news_info=news_info,
+        tally=tally
+    )
+    return news_info
+
+def build_announcement(
+        search_str: str,
+        keywords: list[str],
+        announcement_link: str,
+        announcement_date: datetime,
+        announcement_title: str,
+) -> NewsInformation:
     relevant_keywords: list[str] = [
         keyword
         for keyword in keywords
@@ -126,12 +140,14 @@ def parse_announcement(  # noqa: PLR0913, PLR0917
         retrieved_at=datetime.now(GMT_PLUS_7),
         relevant_keywords=relevant_keywords if len(relevant_keywords) > 0 else None,
     )
+    return news_info
 
-    if check_run_done(news_info):
-        return None
 
+def write_announcement(
+        news_info: NewsInformation,
+        tally: RunTally
+) -> None:
     if news_info.relevant_keywords is not None:
         write_info_to_csv(news_info)
         tally[RunTally.RELEVANT] += 1
     tally[RunTally.TOTAL] += 1
-    return news_info

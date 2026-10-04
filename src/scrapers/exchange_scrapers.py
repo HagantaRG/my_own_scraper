@@ -15,8 +15,10 @@ from seleniumbase.core.sb_driver import WebDriver
 
 from src.scrapers.helpers import (
     RunTally,
+    build_announcement,
     log_run_results,
     parse_announcement,
+    write_announcement,
 )
 from src.utils.constants import (
     CHINA_TIME,
@@ -26,6 +28,7 @@ from src.utils.constants import (
     KUALA_LUMPUR_TIME,
     SINGAPORE_TIME,
 )
+from src.utils.news_utils import NewsInformation
 
 logger = logging.getLogger(__name__)
 
@@ -237,12 +240,15 @@ def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
                 for file in announcement_files:
                     announcement_title: str = file.get_attribute("data-title")
                     announcement_link: str = file.get_attribute("href")
-                    parse_announcement(
+                    news_info: NewsInformation = build_announcement(
                         keywords=keywords + relevant_stock_codes,
                         search_str=f"{announcement_title}{announcement_stock_code}{announcement_stock_name}",
                         announcement_link=announcement_link,
                         announcement_date=announcement_date,
                         announcement_title=announcement_title,
+                    )
+                    write_announcement(
+                        news_info=news_info,
                         tally=tally
                     )
                     logger.debug(
@@ -456,7 +462,6 @@ def scrape_sgx_json(sheet_dict: dict[str, list[str]]) -> None:
             headers={**headers, "Authorizationtoken": token}
         )
         logger.info(f"Sent request to {response.url}")
-        logger.info(f"Headers sent: {response.request.headers}")
         response.raise_for_status()
         return response.json()
 
