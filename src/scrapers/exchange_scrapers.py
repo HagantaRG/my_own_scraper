@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta, tzinfo
 from json import loads
 
 from curl_cffi import requests as cffi_requests
+from curl_cffi.requests.exceptions import RequestException
 from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
@@ -270,119 +271,6 @@ def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
     finally:
         driver.quit()
 
-def scrape_sse(sheet_dict: dict[str, list[str]]) -> None:
-    keywords: list[str] = sheet_dict["keywords"]
-    stock_codes: list[str] = sheet_dict["stock_code_cn"]
-    tally: RunTally = RunTally()
-    page_num: int = 0
-    last_page: bool = False
-    driver = Driver(
-        uc=True,
-        headless=True,
-        page_load_strategy="eager",
-    )
-    driver.set_page_load_timeout(45)
-    try:
-        scrape_link: str = "https://www.sse.com.cn/disclosure/listedinfo/announcement/"
-        logger.info(f"Starting scrape for {scrape_link}")
-        driver.get(scrape_link)
-        logger.info("Waiting for page to fully load...")
-        WebDriverWait(driver, 120).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr > td"))
-        )
-        table_entry: WebElement = driver.find_element(By.CSS_SELECTOR, "tbody > tr > td")
-        logger.info("Clicking button to get last three days of info...")
-        date_range_button: WebElement = driver.find_element(By.CLASS_NAME, "range_date")
-        click_try: int = 0
-        while click_try < DEFAULT_MAX_TRIES:
-            try:
-                click_try += 1
-                logger.debug(f"Clicking annoying button attempt {click_try}")
-                date_range_button.click()
-                WebDriverWait(driver, 1).until(
-                    EC.presence_of_element_located(
-                        (By.CLASS_NAME, "laydate-btns-latestThree")
-                    )
-                )
-                break
-            except WebDriverException:
-                pass
-        three_day_button: WebElement = driver.find_element(
-            By.CLASS_NAME, "laydate-btns-latestThree"
-        )
-        three_day_button.click()
-        WebDriverWait(driver, 30).until(EC.staleness_of(table_entry))
-        while not last_page:
-            page_num += 1
-            logger.info(f"SSE page {page_num} scraping...")
-            WebDriverWait(driver, 60).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr > td"))
-            )
-            announcements: list[WebElement] = driver.find_elements(
-                By.CSS_SELECTOR, "tbody > tr"
-            )
-            announcement_stock_name: str = "N/A"
-            announcement_stock_code: str = "N/A"
-            for announcement in announcements:
-                ann_class: str = announcement.get_attribute("class")
-                announcement_details: list[WebElement] = announcement.find_elements(
-                    By.TAG_NAME, "td"
-                )
-                announcement_link: str = (
-                    announcement_details[2]
-                    .find_element(By.TAG_NAME, "a")
-                    .get_attribute("href")
-                )
-                date_text: str = announcement_details[5].text
-                announcement_date: datetime = datetime.strptime(
-                    date_text, "%Y-%m-%d"
-                ).replace(tzinfo=CHINA_TIME)
-                if ann_class == "multiple_bag" or "last_multiple" in ann_class:
-                    pass
-                else:
-                    announcement_stock_code: str = (
-                        announcement_details[0].find_element(By.TAG_NAME, "a").text
-                    )
-                    announcement_stock_name: str = (
-                        announcement_details[1].find_element(By.TAG_NAME, "a").text
-                    )
-                announcement_title: str = (
-                    announcement_details[2].find_element(By.TAG_NAME, "a").text
-                )
-                relevant_stock_codes: list[str] = [
-                    stock_code
-                    for stock_code in stock_codes
-                    if stock_code == announcement_stock_code
-                ]
-                news_info = parse_announcement(
-                    keywords=keywords + relevant_stock_codes,
-                    search_str=f"{announcement_title}{announcement_stock_code}{announcement_stock_name}",
-                    announcement_link=announcement_link,
-                    announcement_date=announcement_date,
-                    announcement_title=announcement_title,
-                    tally=tally
-                )
-                logger.debug(f"{announcement_title}")
-                if "last_multiple" in ann_class:
-                    announcement_stock_name: str = "N/A"
-                    announcement_stock_code: str = "N/A"
-                if news_info is None:
-                    last_page = True
-                    break
-            if not last_page:
-                logger.info(
-                    f"Not at end of relevant announcements for SSE after {tally[RunTally.TOTAL]} docs scraped, going to next page."
-                )
-                next_button: WebElement = driver.find_element(
-                    By.CLASS_NAME, "next"
-                ).find_element(By.TAG_NAME, "a")
-                next_button.click()
-                WebDriverWait(driver, 30).until(EC.staleness_of(announcements[0]))
-            else:
-                log_run_results("SSE", tally=tally)
-    finally:
-        driver.quit()
-
 def scrape_sgx_json(sheet_dict: dict[str, list[str]]) -> None:
     timezone_fmt = "%Y%m%d_%H%M%S"
     keywords: list[str] = sheet_dict["keywords"]
@@ -504,3 +392,84 @@ def scrape_sgx_json(sheet_dict: dict[str, list[str]]) -> None:
             )
         page_start += 1
     log_run_results("SGX", tally=tally)
+
+def scrape_sse_json(sheet_dict: dict[str, list[str]]) -> None:
+    tally: RunTally = RunTally()
+    stock_codes: list[str] = sheet_dict["stock_code_cn"]
+    keywords: list[str] = sheet_dict["keywords"]
+    base_url: str = "https://static.sse.com.cn/"
+    date_format = "%Y-%m-%d"
+    url = "https://query.sse.com.cn/security/stock/queryCompanyBulletinNew.do"
+    # noinspection PyArgumentList
+    session = cffi_requests.Session(impersonate="chrome")
+    start_date = (datetime.now(tz=CHINA_TIME) - timedelta(days=2)).strftime(date_format)
+    end_date = (datetime.now(tz=CHINA_TIME) + timedelta(days=2)).strftime(date_format)
+    current_page: int = 0
+    last_page: bool = False
+    sse_headers = {
+        "Referer": "https://static.sse.com.cn/",  # required.
+    }
+    logger.info(f"Starting scrape for {url}")
+    while not last_page:
+        current_page += 1
+        sse_params = {
+            "isPagination": "true",
+            "pageHelp.pageSize": 25,  # This is clamped @ 25 by the server
+            "pageHelp.pageNo": current_page,  # keep pageNo/beginPage/endPage equal
+            "pageHelp.beginPage": current_page, # N.B. this is the ONLY param that matters for pagination.
+            "pageHelp.endPage": current_page,
+            "pageHelp.cacheSize": 1,
+            "START_DATE": start_date,  # YYYY-MM-DD; future dates tolerated
+            "END_DATE": end_date,
+            "SECURITY_CODE": "",  # e.g. "600115" to filter one stock
+            "TITLE": "",
+            "BULLETIN_TYPE": "",
+            "stockType": "",
+        }
+        response = session.get(
+            url=url,
+            headers=sse_headers,
+            params=sse_params
+        )
+        response.raise_for_status()
+        response_json = response.json()
+        if "pageHelp" not in response_json:
+            raise RequestException("Request was denied.", response_json)
+        for group in response_json["result"]:
+            for announcement in group:
+                announcement_stock_code: str = announcement["SECURITY_CODE"]
+                announcement_title: str = announcement["TITLE"]
+                announcement_stock_name: str = announcement["SECURITY_NAME"]
+                announcement_link: str = f"{base_url}{announcement["URL"]}"
+                announcement_date: datetime = datetime.strptime(
+                    announcement["SSEDATE"],
+                    date_format
+                ).replace(tzinfo=CHINA_TIME)
+                relevant_stock_codes: list[str] = [
+                    stock_code
+                    for stock_code in stock_codes
+                    if stock_code == announcement_stock_code
+                ]
+                news_info = parse_announcement(
+                    keywords=keywords + relevant_stock_codes,
+                    search_str=f"{announcement_title}{announcement_stock_code}{announcement_stock_name}",
+                    announcement_link=announcement_link,
+                    announcement_date=announcement_date,
+                    announcement_title=announcement_title,
+                    tally=tally,
+                    cutoff=timedelta(days=2)
+                )
+                if news_info is None:
+                    last_page = True
+                    break
+            if last_page:
+                break
+        if response_json["pageHelp"]["pageCount"] <= current_page:
+            break
+        if not last_page:
+            logger.info(
+                f"Not at end of relevant announcements for SSE after {tally[RunTally.TOTAL]} docs scraped, going to next page."
+            )
+    log_run_results("SSE", tally=tally)
+
+

@@ -4,6 +4,7 @@ import logging
 import sys
 import traceback
 from collections.abc import Callable
+from datetime import timedelta
 from os import environ
 from threading import Event, Lock, Thread
 from time import monotonic
@@ -105,6 +106,22 @@ def print_section(title: str) -> None:
         _clear_live_line()
         print(f"\n{rule}\n  {title}\n{rule}")
 
+def format_timedelta(delta: timedelta) -> str:
+ """Render a timedelta as a compact human-readable string for logging."""
+ seconds = int(delta.total_seconds())
+ if seconds == 0:
+     return "0 seconds"
+ parts: list[str] = []
+ for unit, unit_seconds in (
+     ("day", 86_400),
+     ("hour", 3_600),
+     ("minute", 60),
+     ("second", 1),
+ ):
+     count, seconds = divmod(seconds, unit_seconds)
+     if count:
+         parts.append(f"{count} {unit}{'' if count == 1 else 's'}")
+ return ", ".join(parts)
 
 def print_menu() -> None:
     """Display the command menu as a distinct block."""

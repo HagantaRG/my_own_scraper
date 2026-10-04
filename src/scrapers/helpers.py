@@ -6,6 +6,7 @@ from os import makedirs, path
 
 from filelock import FileLock
 
+from src.utils.cli_utils import format_timedelta
 from src.utils.constants import GMT_PLUS_7
 from src.utils.filepaths import DATA_FOLDER
 from src.utils.news_utils import NewsInformation
@@ -74,10 +75,14 @@ def write_info_to_csv(info: NewsInformation) -> None:
         else:
             logger.info(f"Link {info.news_link} already in CSV, not writing.")
 
-def check_run_done(news: NewsInformation) -> bool:
-    if datetime.now(GMT_PLUS_7) > news.news_date + timedelta(days=1, hours=12):
+def check_run_done(
+        news: NewsInformation,
+        cutoff: timedelta = timedelta(days=1, hours=12)
+) -> bool:
+    if datetime.now(GMT_PLUS_7) > news.news_date + cutoff:
         logger.info(
-            "Announcement older than 1 day, 12 hours. Done looking through latest announcements, scrape finished."
+            f"Announcement older than {format_timedelta(cutoff)}."
+            f" Done looking through latest announcements, scrape finished."
         )
         return True
     if check_link_parsed_csv(news):
@@ -103,7 +108,8 @@ def parse_announcement(  # noqa: PLR0913, PLR0917
         announcement_link: str,
         announcement_date: datetime,
         announcement_title: str,
-        tally: RunTally
+        tally: RunTally,
+        cutoff: timedelta = timedelta(days=1, hours=12),
 ) -> NewsInformation | None:
     news_info: NewsInformation = build_announcement(
         search_str=search_str,
@@ -112,7 +118,7 @@ def parse_announcement(  # noqa: PLR0913, PLR0917
         announcement_date=announcement_date,
         announcement_title=announcement_title,
     )
-    if check_run_done(news_info):
+    if check_run_done(news_info, cutoff):
         return None
     write_announcement(
         news_info=news_info,
