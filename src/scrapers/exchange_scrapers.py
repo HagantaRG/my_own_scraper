@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta, tzinfo
 from curl_cffi import requests as cffi_requests
 from curl_cffi.requests.exceptions import RequestException
 
+from src.scrapers import UnexpectedPageFormatError
 from src.scrapers.helpers import (
     RunTally,
     log_run_results,
@@ -247,7 +248,10 @@ def scrape_sse_json(sheet_dict: dict[str, list[str]]) -> None:
         response_json = response.json()
         if "pageHelp" not in response_json:
             raise RequestException("Request was denied.", response_json)
-        for group in response_json["result"]:
+        result = response_json["result"]
+        if result and not isinstance(result[0], list):
+            raise UnexpectedPageFormatError("SSE result shape changed: expected list-of-lists")
+        for group in result:
             for announcement in group:
                 announcement_stock_code: str = announcement["SECURITY_CODE"]
                 announcement_title: str = announcement["TITLE"]
