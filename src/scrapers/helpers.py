@@ -46,7 +46,7 @@ def check_link_parsed_csv(news: NewsInformation) -> bool:
                 return True
     return False
 
-def write_info_to_csv(info: NewsInformation) -> None:
+def write_info_to_csv(info: NewsInformation) -> bool:
     makedirs(f"{DATA_FOLDER}", exist_ok=True)
     with FileLock(NEWS_DATA_LOCK_PATH), open(
         NEWS_DATA_PATH,
@@ -74,6 +74,8 @@ def write_info_to_csv(info: NewsInformation) -> None:
             )
         else:
             logger.info(f"Link {info.news_link} already in CSV, not writing.")
+            return False
+        return True
 
 def check_run_done(
         news: NewsInformation,
@@ -154,6 +156,7 @@ def write_announcement(
         tally: RunTally
 ) -> None:
     if news_info.relevant_keywords is not None:
-        write_info_to_csv(news_info)
-        tally[RunTally.RELEVANT] += 1
+        is_written = write_info_to_csv(news_info)
+        if is_written:
+            tally[RunTally.RELEVANT] += 1
     tally[RunTally.TOTAL] += 1

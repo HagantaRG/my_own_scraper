@@ -4,7 +4,7 @@ import shutil
 import traceback
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from csv import DictReader
+from csv import DictReader, Error
 from datetime import datetime, timedelta
 from pathlib import Path
 from types import TracebackType
@@ -45,6 +45,10 @@ ACCEPTABLE_EXCEPTIONS: tuple[type[Exception], ...] = (
     RequestException
 )
 
+JOB_ISOLATION_EXCEPTIONS = (
+         (*ACCEPTABLE_EXCEPTIONS, TypeError, AttributeError, OSError, Error)
+     )
+
 
 def _run_with_retries[ResultT](  # noqa: C901
     *, job_name: str, operation: Callable[[], ResultT], max_tries: int
@@ -76,7 +80,7 @@ def _run_with_retries[ResultT](  # noqa: C901
             ) from exc
         except Exception as exc:
             logger.exception(
-                f"{job_name} attempt {tries}/{max_tries} failed with a {type(exc).__name__} error",
+                f"{job_name} attempt {tries}/{max_tries} failed 3with a {type(exc).__name__} error",
             )
             raise
     raise RuntimeError("Retry loop ended unexpectedly")
@@ -300,8 +304,8 @@ class ScrapeOrchestrator:
                     job_name: str = job_futures[future]
                     try:
                         future.result()
-                    except ACCEPTABLE_EXCEPTIONS:
-                        logger.error(
+                    except JOB_ISOLATION_EXCEPTIONS:
+                        logger.exception(
                             f"{job_name} scrape attempted {self.max_tries} times, ending attempts."
                         )
                         failed_jobs.append(job_name)
@@ -335,7 +339,8 @@ class ScrapeOrchestrator:
                     f"Exchange scrape completed with {len(failed_jobs)} failed job(s).",
                     "WARNING",
                 )
-            print_cli("All exchange scraper jobs completed successfully.", "DONE")
+            else:
+                print_cli("All exchange scraper jobs completed successfully.", "DONE")
         finally:
             shutil.rmtree(temp_path, ignore_errors=True)
             print_cli("Exchange scrape temporary files removed.", "CLEANUP")

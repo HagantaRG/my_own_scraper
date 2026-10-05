@@ -382,11 +382,8 @@ def scrape_szse_json(sheet_dict: dict[str, list[str]]) -> None:
             if news_info is None:
                 last_page = True
                 break
-            if last_page:
-                break
-        if last_page:
-            break
-        logger.info(
-            f"Not at end of relevant announcements for SZSE after {tally[RunTally.TOTAL]} docs scraped, going to next page."
-        )
+        if not last_page:
+            logger.info(
+                f"Not at end of relevant announcements for SZSE after {tally[RunTally.TOTAL]} docs scraped, going to next page."
+            )
     log_run_results("SZSE", tally=tally)
