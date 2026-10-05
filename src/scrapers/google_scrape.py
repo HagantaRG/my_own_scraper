@@ -11,7 +11,8 @@ from selenium.webdriver.remote.webelement import WebElement
 from seleniumbase import Driver
 from seleniumbase.core.sb_driver import DriverMethods
 
-from src.utils.constants import GMT_PLUS_7
+from src.scrapers.exchange_scrapers import UnexpectedPageFormatError
+from src.utils.constants import DEFAULT_MAX_TRIES, GMT_PLUS_7
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ def run_search(
             "outerHTML"
         )
         tries: int = 0
-        while "captcha" in current_html:
+        while "captcha" in current_html and tries <= DEFAULT_MAX_TRIES * 2:
             delay: float = min(60.0, 2 ** tries)
             captcha_wait: float = random.uniform(delay * 0.5, delay)
             logger.info(
@@ -85,6 +86,10 @@ def run_search(
                 "outerHTML"
             )
             tries += 1
+        if "captcha" in current_html:
+            raise UnexpectedPageFormatError(
+                f"Captcha still present after {tries} backoff attempts for '{search_term}'."
+            )
         search_element_children: list[WebElement] = driver.find_elements(
             By.CSS_SELECTOR, '[id="search"] *'
         )
@@ -139,32 +144,37 @@ def google_search_scrape(
     sheet_dict: dict[str, list[str]],
     progress_callback: Callable[[int, int, str], None] | None = None,
     status_callback: Callable[[str | None], None] | None = None,
-) -> dict[str, list[SearchResult]]:
+) -> tuple[dict[str, list[SearchResult]], list[str]]:
     search_terms: list[str] = sheet_dict["google_search_terms"]
     total_terms = len(search_terms)
     base_url: str = "https://www.google.com/search?"
     res_dict: dict[str, list[SearchResult]] = {}
     driver = Driver(uc=True, headless=True, incognito=True)
+    failed_terms: list[str] = []
     try:
         for completed, search_term in enumerate(search_terms, start=1):
-            logger.info(f"Starting search scrape for {search_term}")
-            search_params: dict[str, str] = {
-                "tbm": "nws",
-                "pws": "0",
-                "tbs": "qdr:d,sbd:1",
-                "sbd": "1",
-            }
-            res_dict[search_term] = []
-            for page in run_search(
-                base_url=base_url,
-                search_term=search_term,
-                driver=driver,
-                search_params=search_params,
-                status_callback=status_callback,
-            ):
-                res_dict[search_term] += page
+            try:
+                logger.info(f"Starting search scrape for {search_term}")
+                search_params: dict[str, str] = {
+                    "tbm": "nws",
+                    "pws": "0",
+                    "tbs": "qdr:d,sbd:1",
+                    "sbd": "1",
+                }
+                res_dict[search_term] = []
+                for page in run_search(
+                    base_url=base_url,
+                    search_term=search_term,
+                    driver=driver,
+                    search_params=search_params,
+                    status_callback=status_callback,
+                ):
+                    res_dict[search_term] += page
+            except UnexpectedPageFormatError:
+                logger.exception(f"Skipping '{search_term}' due to captcha limit.")
+                failed_terms.append(search_term)
             if progress_callback is not None:
                 progress_callback(completed, total_terms, search_term)
-        return res_dict
+        return res_dict, failed_terms
     finally:
         driver.quit()

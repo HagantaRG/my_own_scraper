@@ -113,11 +113,11 @@ def _run_scrape_job(
 
 def _run_google_job(
     job_name: str, keywords_sheet: dict[str, list[str]], max_tries: int
-) -> dict[str, list[SearchResult]]:
+) -> tuple[dict[str, list[SearchResult]], list[str]]:
     start_time: datetime = datetime.now(GMT_PLUS_7)
     with ProgressBar("Google keywords") as progress:
         progress.update(0, len(keywords_sheet["google_search_terms"]))
-        search_results = _run_with_retries(
+        search_results, failed_jobs = _run_with_retries(
             job_name=job_name,
             operation=lambda: google_search_scrape(
                 keywords_sheet,
@@ -135,7 +135,7 @@ def _run_google_job(
         f"{job_name} completed in {scrape_time.total_seconds():.1f} seconds.",
         "DONE",
     )
-    return search_results
+    return search_results, failed_jobs
 
 
 class ScrapeOrchestrator:
@@ -224,9 +224,10 @@ class ScrapeOrchestrator:
         self._retrieve_settings(temp_path)
         job_name: str = "GoogleScrape"
         search_results: dict[str, list[SearchResult]] = {}
+        failed_terms: list[str] = []
         try:
             try:
-                search_results = _run_google_job(
+                search_results, failed_terms = _run_google_job(
                     job_name=job_name,
                     keywords_sheet=self.keywords_sheet,
                     max_tries=self.max_tries,
@@ -261,7 +262,23 @@ class ScrapeOrchestrator:
                     password=self.email_settings["password"],
                 )
                 print_cli("Google results email sent.", "DONE")
-            else:
+            if failed_terms:
+                send_email(
+                    subject=f"Google scrape: {len(failed_terms)} search term(s) captcha-blocked",
+                    body="The following search terms were skipped after repeated captcha backoff:<br>" +
+                         "<br>".join(failed_terms),
+                    sender=self.email_settings["sender"],
+                    recipients=self.email_settings["admin"],
+                    password=self.email_settings["password"],
+                )
+            elif not any(search_results.values()):
+                send_email(
+                    subject="Google scrape failed, NOTHING found.",
+                    body="",
+                    sender=self.email_settings["sender"],
+                    recipients=self.email_settings["admin"],
+                    password=self.email_settings["password"],
+                )
                 raise ScrapeBatchError("Google scrape has failed.")
         finally:
             shutil.rmtree(temp_path, ignore_errors=True)
