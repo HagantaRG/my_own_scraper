@@ -76,14 +76,19 @@ try:
                 logger.info(
                     "Cleared any existing jobs, cleared previously existing schedulers."
                 )
-                all_scrape_schedule = (
+                morning_scrape_schedule = (
                     every()
-                    .day.at("09:00")
+                    .day.at("07:30")
                     .do(run_threaded, orchestrator.scrape_all)
                 )
-                logger.info("9AM scrapes scheduled.")
+                evening_scrape_schedule = (
+                    every()
+                    .day.at("19:30")
+                    .do(run_threaded, orchestrator.scrape_all)
+                )
+                logger.info("Morning and evening scrapes.")
                 print_cli(
-                    "Daily exchange and Google scrapes are scheduled for 09:00 local time.",
+                    "Daily exchange and Google scrapes are scheduled for 07:30 and 19:30 local time.",
                     "SCHEDULE",
                 )
                 stop_event: Event = run_continuously()
