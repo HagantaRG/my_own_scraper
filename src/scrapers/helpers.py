@@ -35,7 +35,7 @@ class RunTally(Counter):
 def check_link_parsed_csv(news: NewsInformation) -> bool:
     if not path.isfile(NEWS_DATA_PATH):
         return False
-    with open(
+    with FileLock(NEWS_DATA_LOCK_PATH), open(
         NEWS_DATA_PATH,
         newline="",
         encoding="utf-8"
