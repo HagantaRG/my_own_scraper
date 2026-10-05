@@ -2,11 +2,10 @@ import calendar
 import codecs
 import logging
 from datetime import UTC, datetime, timedelta, tzinfo
-from json import loads
 
 from curl_cffi import requests as cffi_requests
 from curl_cffi.requests.exceptions import RequestException
-from selenium.common.exceptions import TimeoutException, WebDriverException
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
@@ -23,7 +22,6 @@ from src.scrapers.helpers import (
 )
 from src.utils.constants import (
     CHINA_TIME,
-    DEFAULT_MAX_TRIES,
     GMT_PLUS_7,
     HONG_KONG_TIME,
     KUALA_LUMPUR_TIME,
@@ -139,57 +137,61 @@ def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
     finally:
         driver.quit()
 
-def scrape_bursa_my(sheet_dict: dict[str, list[str]]) -> None:
+def scrape_bursa_my_json(sheet_dict: dict[str, list[str]]) -> None:
     ## Use their API, you can probably access it.
     keywords: list[str] = sheet_dict["keywords"]
     current_time: int = int(datetime.now(GMT_PLUS_7).timestamp())
     page_count: int = 0
     last_page: bool = False
     tally: RunTally = RunTally()
-    driver = Driver(uc=True, headless=True)
-    try:
-        logger.info("Starting scrape for https://www.bursamalaysia.com/")
-        while not last_page:
-            page_count += 1
-            scrape_link: str = f"https://www.bursamalaysia.com/api/v1/announcements/search?ann_type=company&per_page=50&page={page_count}&_={current_time}"
-            driver.get(scrape_link)
-            announcement_json_str: str = driver.page_source.split("<pre>")[1].split(
-                "</pre>"
-            )[0]
-            announcement_json: dict = loads(announcement_json_str)
-            data: list[list[str | int]] = announcement_json["data"]
-            for entry in data:
-                date_str: str = entry[1].split("d-none'>")[1].split("</div>")[0]
-                link_ext: str = entry[3].split("href='")[1].split("' target=")[0]
-                announcement_link: str = f"https://bursamalaysia.com{link_ext}"
-                company_name: str = (
-                    entry[2].split("_blank>")[1].split("</a")[0]
-                    if entry[2] != "-"
-                    else ""
-                )
-                announcement_title: str = entry[3].split("_blank>")[1].split("</a")[0]
-                announcement_date: datetime = datetime.strptime(
-                    date_str, "%d %b %Y"
-                ).replace(tzinfo=KUALA_LUMPUR_TIME)
+    # noinspection PyArgumentList
+    session = cffi_requests.Session(impersonate="chrome")
+    logger.info("Starting scrape for https://www.bursamalaysia.com/")
+    while not last_page:
+        page_count += 1
+        params: dict [str, str|int] = {
+            "ann_type": "company",
+            "per_page": "50",
+            "page": page_count,
+            "_": current_time
+        }
+        scrape_link: str = "https://www.bursamalaysia.com/api/v1/announcements/search"
+        response = session.get(
+            url=scrape_link,
+            params=params,
+        )
+        response.raise_for_status()
+        data: list[list[str | int]] = response.json()["data"]
+        for entry in data:
+            date_str: str = entry[1].split("d-none'>")[1].split("</div>")[0]
+            link_ext: str = entry[3].split("href='")[1].split("' target=")[0]
+            announcement_link: str = f"https://bursamalaysia.com{link_ext}"
+            company_name: str = (
+                entry[2].split("_blank>")[1].split("</a")[0]
+                if entry[2] != "-"
+                else ""
+            )
+            announcement_title: str = entry[3].split("_blank>")[1].split("</a")[0]
+            announcement_date: datetime = datetime.strptime(
+                date_str, "%d %b %Y"
+            ).replace(tzinfo=KUALA_LUMPUR_TIME)
 
-                news_info = parse_announcement(
-                    keywords=keywords,
-                    search_str=f"{announcement_title}{company_name}",
-                    announcement_link=announcement_link,
-                    announcement_date=announcement_date,
-                    announcement_title=announcement_title,
-                    tally=tally
-                )
-                if news_info is None:
-                    last_page = True
-                    break
-            if not last_page:
-                logger.info(
-                    f"Not at end of relevant announcements for Malaysia after {tally[RunTally.TOTAL]} docs scraped, going to next page."
-                )
-        log_run_results("Bursa MY", tally=tally)
-    finally:
-        driver.quit()
+            news_info = parse_announcement(
+                keywords=keywords,
+                search_str=f"{announcement_title}{company_name}",
+                announcement_link=announcement_link,
+                announcement_date=announcement_date,
+                announcement_title=announcement_title,
+                tally=tally
+            )
+            if news_info is None:
+                last_page = True
+                break
+        if not last_page:
+            logger.info(
+                f"Not at end of relevant announcements for Malaysia after {tally[RunTally.TOTAL]} docs scraped, going to next page."
+            )
+    log_run_results("Bursa MY", tally=tally)
 
 def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
     keywords: list[str] = sheet_dict["keywords"]
@@ -397,7 +399,7 @@ def scrape_sse_json(sheet_dict: dict[str, list[str]]) -> None:
     tally: RunTally = RunTally()
     stock_codes: list[str] = sheet_dict["stock_code_cn"]
     keywords: list[str] = sheet_dict["keywords"]
-    base_url: str = "https://static.sse.com.cn/"
+    base_url: str = "https://static.sse.com.cn"
     date_format = "%Y-%m-%d"
     url = "https://query.sse.com.cn/security/stock/queryCompanyBulletinNew.do"
     # noinspection PyArgumentList
