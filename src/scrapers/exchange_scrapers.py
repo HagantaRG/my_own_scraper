@@ -1,24 +1,16 @@
 import calendar
 import codecs
 import logging
+import random
 from datetime import UTC, datetime, timedelta, tzinfo
 
 from curl_cffi import requests as cffi_requests
 from curl_cffi.requests.exceptions import RequestException
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.common.by import By
-from selenium.webdriver.remote.webelement import WebElement
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.wait import WebDriverWait
-from seleniumbase import Driver
-from seleniumbase.core.sb_driver import WebDriver
 
 from src.scrapers.helpers import (
     RunTally,
-    build_announcement,
     log_run_results,
     parse_announcement,
-    write_announcement,
 )
 from src.utils.constants import (
     CHINA_TIME,
@@ -27,7 +19,6 @@ from src.utils.constants import (
     KUALA_LUMPUR_TIME,
     SINGAPORE_TIME,
 )
-from src.utils.news_utils import NewsInformation
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +47,8 @@ def scrape_bursa_my_json(sheet_dict: dict[str, list[str]]) -> None:
         )
         response.raise_for_status()
         data: list[list[str | int]] = response.json()["data"]
+        if not data:
+            break
         for entry in data:
             date_str: str = entry[1].split("d-none'>")[1].split("</div>")[0]
             link_ext: str = entry[3].split("href='")[1].split("' target=")[0]
@@ -86,86 +79,6 @@ def scrape_bursa_my_json(sheet_dict: dict[str, list[str]]) -> None:
                 f"Not at end of relevant announcements for Malaysia after {tally[RunTally.TOTAL]} docs scraped, going to next page."
             )
     log_run_results("Bursa MY", tally=tally)
-
-def scrape_szse(sheet_dict: dict[str, list[str]]) -> None:
-    keywords: list[str] = sheet_dict["keywords"]
-    stock_codes: list[str] = sheet_dict["stock_code_cn"]
-    page_num: int = 1
-    last_page: bool = False
-    driver = Driver(uc=True, headless=True)
-    tally: RunTally = RunTally()
-    scrape_link: str = "https://www.szse.cn/disclosure/listed/notice/index.html"
-    logger.info(f"Starting scrape for {scrape_link}")
-    try:
-        driver.get(scrape_link)
-        while not last_page:
-            logger.info(f"SZSE page {page_num} scraping...")
-            WebDriverWait(driver, 30).until(
-                EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, ".disclosure-tbody > tr > td")
-                )
-            )
-            announcements: list[WebElement] = driver.find_elements(
-                By.CSS_SELECTOR, ".disclosure-tbody > tr"
-            )
-
-            for announcement in announcements:
-                announcement_details: list[WebElement] = announcement.find_elements(
-                    By.TAG_NAME, "td"
-                )
-                announcement_stock_code: str = (
-                    announcement_details[0].find_element(By.TAG_NAME, "a").text
-                )
-                announcement_stock_name: str = (
-                    announcement_details[1].find_element(By.TAG_NAME, "a").text
-                )
-                announcement_files: list[WebElement] = announcement_details[
-                    2
-                ].find_elements(By.TAG_NAME, "a")
-                date_text: str = (
-                    announcement_details[3].find_elements(By.TAG_NAME, "span")[0].text
-                )
-                # This date extraction is because the Shenzhen stock exchange for some reason uses *TWO* datetime formats.
-                announcement_date: datetime = datetime.strptime(
-                    date_text.split(" ", maxsplit=1)[0], "%Y-%m-%d"
-                ).replace(tzinfo=CHINA_TIME)
-                relevant_stock_codes: list[str] = [
-                    stock_code
-                    for stock_code in stock_codes
-                    if stock_code == announcement_stock_code
-                ]
-                for file in announcement_files:
-                    announcement_title: str = file.get_attribute("data-title")
-                    announcement_link: str = file.get_attribute("href")
-                    news_info: NewsInformation = build_announcement(
-                        keywords=keywords + relevant_stock_codes,
-                        search_str=f"{announcement_title}{announcement_stock_code}{announcement_stock_name}",
-                        announcement_link=announcement_link,
-                        announcement_date=announcement_date,
-                        announcement_title=announcement_title,
-                    )
-                    write_announcement(
-                        news_info=news_info,
-                        tally=tally
-                    )
-                    logger.debug(
-                        f"{announcement_stock_code} {announcement_title} {announcement_link}"
-                    )
-            paginator: WebElement = driver.find_element(By.ID, "paginator")
-            this_page: WebElement = paginator.find_element(
-                By.CSS_SELECTOR, f'a[data-pi="{page_num - 1}"]'
-            )
-            if "last" in this_page.get_attribute("class"):
-                log_run_results("SZSE", tally=tally)
-                break
-            logger.info(
-                f"Not at end of relevant announcements for SZSE after {tally[RunTally.TOTAL]} docs scraped, going to next page."
-            )
-            page_num += 1
-            paginator.find_element(By.CSS_SELECTOR, ".next > a").click()
-            WebDriverWait(driver, 30).until(EC.staleness_of(announcements[1]))
-    finally:
-        driver.quit()
 
 def scrape_sgx_json(sheet_dict: dict[str, list[str]]) -> None:
     timezone_fmt = "%Y%m%d_%H%M%S"
@@ -261,7 +174,10 @@ def scrape_sgx_json(sheet_dict: dict[str, list[str]]) -> None:
             size=page_size
         )
         logger.info("JSON retrieved.")
-        for announcement in announcement_data["data"]:
+        data = announcement_data["data"]
+        if not data:
+            break
+        for announcement in data:
             announcement_date = datetime.fromtimestamp(
                 announcement["broadcast_date_time"]/1000,
                 tz=UTC
@@ -375,7 +291,7 @@ def scrape_hkx_json(sheet_dict: dict[str, list[str]]) -> None:
     base_url: str = "https://www1.hkexnews.hk/listedco/listconews/sehk"
     date_format: str = "%d/%m/%Y %H:%M"
     # noinspection PyArgumentList
-    session: cffi_requests.Session = cffi_requests.Session(impersonate="chrome")
+    session = cffi_requests.Session(impersonate="chrome")
     for num in range(1,3):
         url: str = f"https://www1.hkexnews.hk/ncms/json/eds/lcisehk1relsde_{num}.json"
         response = session.get(url)
@@ -402,3 +318,71 @@ def scrape_hkx_json(sheet_dict: dict[str, list[str]]) -> None:
         if news_info is None:
             break
     log_run_results("HKX", tally=tally)
+
+def scrape_szse_json(sheet_dict: dict[str, list[str]]) -> None:
+    keywords: list[str] = sheet_dict["keywords"]
+    stock_codes: list[str] = sheet_dict["stock_code_cn"]
+    date_format: str = "%Y-%m-%d %H:%M:%S"
+    end_date: datetime = datetime.now(tz=CHINA_TIME)
+    start_date: datetime = end_date - timedelta(days=7)
+    page_num: int = 0
+    last_page: bool = False
+    # noinspection PyArgumentList
+    session = cffi_requests.Session(impersonate="chrome")
+    tally: RunTally = RunTally()
+    scrape_link: str = "https://www.szse.cn/api/disc/announcement/annList"
+    base_url: str = "https://www.szse.cn/disclosure/listed/bulletinDetail/index.html?"
+    logger.info(f"Starting scrape for {scrape_link}")
+    while not last_page:
+        page_num += 1
+        payload: dict = {
+            "channelCode": ["listedNotice_disc"],
+            "pageNum": page_num,
+            "pageSize": 100,
+            "seDate": [
+                start_date.strftime("%Y-%m-%d"),
+                end_date.strftime("%Y-%m-%d")
+            ]
+        }
+        response = session.post(
+            scrape_link,
+            json=payload,
+        )
+        response.raise_for_status()
+        data = response.json()["data"]
+        if not data:
+            break
+        for announcement in data:
+            announcement_stock_code: str = announcement["secCode"][0]
+            announcement_stock_name: str = announcement["secName"][0]
+            announcement_title: str = announcement["title"]
+            announcement_date: datetime = datetime.strptime(
+                announcement["publishTime"],
+                date_format
+            ).replace(tzinfo=CHINA_TIME)
+            announcement_link: str = f"{base_url}{announcement["id"]}"
+            relevant_stock_codes: list[str] = [
+                stock_code
+                for stock_code in stock_codes
+                if stock_code == announcement_stock_code
+            ]
+            news_info = parse_announcement(
+                keywords=keywords + relevant_stock_codes,
+                search_str=f"{announcement_title}{announcement_stock_code}{announcement_stock_name}",
+                announcement_link=announcement_link,
+                announcement_date=announcement_date,
+                announcement_title=announcement_title,
+                tally=tally,
+                cutoff=timedelta(days=2)
+            )
+            if news_info is None:
+                last_page = True
+                break
+            if last_page:
+                break
+        if last_page:
+            break
+        logger.info(
+            f"Not at end of relevant announcements for SZSE after {tally[RunTally.TOTAL]} docs scraped, going to next page."
+        )
+    log_run_results("SZSE", tally=tally)
