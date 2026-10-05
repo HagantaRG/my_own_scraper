@@ -339,6 +339,13 @@ class ScrapeOrchestrator:
                     f"Exchange scrape completed with {len(failed_jobs)} failed job(s).",
                     "WARNING",
                 )
+                send_email(
+                    subject=f"FAILED JOBS FOR THE FOLLOWING SCRAPES: {failed_jobs}",
+                    body="",
+                    sender=self.email_settings["sender"],
+                    recipients=self.email_settings["admin"],
+                    password=self.email_settings["password"],
+                )
             else:
                 print_cli("All exchange scraper jobs completed successfully.", "DONE")
         finally:
