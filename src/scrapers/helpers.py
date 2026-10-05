@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 NEWS_DATA_PATH = f"{DATA_FOLDER}/news_data.csv"
 NEWS_DATA_LOCK_PATH = f"{NEWS_DATA_PATH}.lock"
 NEWS_DATA_HEADERS: list[str] = ["link", "title", "date", "keywords", "retrieved_at"]
+_NEWS_DATA_LOCK = FileLock(NEWS_DATA_LOCK_PATH, is_singleton=True)
 
 class RunTally(Counter):
     TOTAL = "total"
@@ -35,7 +36,7 @@ class RunTally(Counter):
 def check_link_parsed_csv(news: NewsInformation) -> bool:
     if not path.isfile(NEWS_DATA_PATH):
         return False
-    with FileLock(NEWS_DATA_LOCK_PATH), open(
+    with _NEWS_DATA_LOCK, open(
         NEWS_DATA_PATH,
         newline="",
         encoding="utf-8"
@@ -48,7 +49,7 @@ def check_link_parsed_csv(news: NewsInformation) -> bool:
 
 def write_info_to_csv(info: NewsInformation) -> bool:
     makedirs(f"{DATA_FOLDER}", exist_ok=True)
-    with FileLock(NEWS_DATA_LOCK_PATH), open(
+    with _NEWS_DATA_LOCK, open(
         NEWS_DATA_PATH,
         "a",
         newline="",
