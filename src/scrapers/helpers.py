@@ -87,11 +87,6 @@ def check_run_done(
             f" Done looking through latest announcements, scrape finished."
         )
         return True
-    if check_link_parsed_csv(news):
-        logger.info(
-            f"Reached an already-parsed announcement at {news.news_link} Done looking through latest announcements, scrape finished."
-        )
-        return True
     return False
 
 def log_run_results(
