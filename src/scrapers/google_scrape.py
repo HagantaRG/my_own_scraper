@@ -11,7 +11,7 @@ from selenium.webdriver.remote.webelement import WebElement
 from seleniumbase import Driver
 from seleniumbase.core.sb_driver import DriverMethods
 
-from src.scrapers.exchange_scrapers import UnexpectedPageFormatError
+from src.scrapers.scrape_errors import UnexpectedPageFormatError
 from src.utils.constants import DEFAULT_MAX_TRIES, GMT_PLUS_7
 
 logger = logging.getLogger(__name__)

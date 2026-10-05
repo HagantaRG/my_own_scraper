@@ -1,18 +1,17 @@
 import calendar
 import codecs
 import logging
-import random
 from datetime import UTC, datetime, timedelta, tzinfo
 
 from curl_cffi import requests as cffi_requests
 from curl_cffi.requests.exceptions import RequestException
 
-from src.scrapers import UnexpectedPageFormatError
 from src.scrapers.helpers import (
     RunTally,
     log_run_results,
     parse_announcement,
 )
+from src.scrapers.scrape_errors import UnexpectedPageFormatError
 from src.utils.constants import (
     CHINA_TIME,
     GMT_PLUS_7,

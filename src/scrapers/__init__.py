@@ -15,8 +15,9 @@ from urllib3.exceptions import MaxRetryError, ReadTimeoutError
 
 # Custom libs
 from src.google_client import GoogleClient
-from src.scrapers import exchange_scrapers as scrapers
+from src.scrapers import exchange_scrapers as webcrawlers
 from src.scrapers.google_scrape import SearchResult, google_search_scrape
+from src.scrapers.scrape_errors import ScrapeBatchError, UnexpectedPageFormatError
 from src.smtp_functions import send_email
 from src.utils import email_utils, toml_reader
 from src.utils.cli_utils import ProgressBar, Spinner, print_cli, print_section
@@ -27,12 +28,6 @@ from src.utils.toml_reader import Toml
 logger = logging.getLogger(__name__)
 
 
-class UnexpectedPageFormatError(Exception):
-    """Page was loaded, and all element exists, but some retrieved values did not match the expected format."""
-
-
-class ScrapeBatchError(Exception):
-    """Some jobs in a batch of scrapes failed."""
 
 
 ACCEPTABLE_EXCEPTIONS: tuple[type[Exception], ...] = (
@@ -156,12 +151,12 @@ class ScrapeOrchestrator:
     def exchange_jobs() -> dict[str, Callable[[dict[str, list[str]]], None]]:
         """Return scraper functions defined in exchange_scrapers.py."""
         jobs: dict[str, Callable[[dict[str, list[str]]], None]] = {}
-        for name in dir(scrapers):
-            job = getattr(scrapers, name)
+        for name in dir(webcrawlers):
+            job = getattr(webcrawlers, name)
             if (
                 name.startswith("scrape_")
                 and callable(job)
-                and getattr(job, "__module__", None) == scrapers.__name__
+                and getattr(job, "__module__", None) == webcrawlers.__name__
             ):
                 jobs[name] = job
         return jobs
