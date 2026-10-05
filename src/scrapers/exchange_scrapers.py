@@ -31,112 +31,6 @@ from src.utils.news_utils import NewsInformation
 
 logger = logging.getLogger(__name__)
 
-def scrape_hkx(sheet_dict: dict[str, list[str]]) -> None:
-    keywords: list[str] = sheet_dict["keywords"]
-    scrape_link: str = (
-        "https://www1.hkexnews.hk/listedco/listconews/index/lci.html?lang=en"
-    )
-    driver = Driver(uc=True, headless=True)
-    tally: RunTally = RunTally()
-    try:
-        logger.info(f"Starting scrape for {scrape_link}")
-        driver.get(scrape_link)
-        days_button: WebElement = driver.find_element(By.CLASS_NAME, "sevenDays")
-        days_button.click()
-        try:
-            WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located((By.ID, "onetrust-reject-all-handler"))
-            )
-            logger.info("Found reject button in HKX, clicking.")
-            driver.find_element(By.ID, "onetrust-reject-all-handler").click()
-            WebDriverWait(driver, 5).until(
-                EC.invisibility_of_element_located((By.ID, "onetrust-group-container"))
-            )
-        except TimeoutException:
-            pass
-
-        cutoff_date: datetime = datetime.now(GMT_PLUS_7) - timedelta(hours=36)
-        last_datetime: datetime | None = None
-        logger.info(f"Waiting for element presence in {scrape_link}")
-        WebDriverWait(driver, 60).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "tbody > tr > td"))
-        )
-        logger.info(f"Retrieving announcements for {scrape_link}")
-        announcements: list[WebElement] = []
-        num_last_announcements: int = len(announcements)
-
-        def rows_finished_loading(webdriver: WebDriver) -> bool:
-            return not webdriver.find_elements(
-                By.CSS_SELECTOR, ".loading, .spinner, [aria-busy='true']"
-            )
-
-        while last_datetime is None or last_datetime > cutoff_date:
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            try:
-                more_button: WebElement | None = WebDriverWait(driver, 1).until(
-                    EC.element_to_be_clickable(
-                        (
-                            By.CSS_SELECTOR,
-                            ".component-loadmore__link.component-loadmore__icon",
-                        )
-                    )
-                )
-            except TimeoutException:
-                more_button = None
-            if more_button is not None:
-                more_button.click()
-            WebDriverWait(driver, 60).until(rows_finished_loading)
-            announcements = driver.find_elements(By.CSS_SELECTOR, "tbody > tr")
-            announcement_details: list[WebElement] = announcements[-1].find_elements(
-                By.TAG_NAME, "td"
-            )
-            announcement_datetime: datetime = datetime.strptime(
-                announcement_details[0].text, "%d/%m/%Y %H:%M"
-            ).replace(tzinfo=HONG_KONG_TIME)
-
-            if (
-                announcement_datetime != last_datetime
-                or len(announcements) > num_last_announcements
-            ):
-                last_datetime = announcement_datetime
-                num_last_announcements = len(announcements)
-            else:
-                break
-
-        logger.info(f"Found {len(announcements)} announcements, parsing...")
-
-        for announcement in announcements:
-            # Get link for announcement content
-            announcement_details: list[WebElement] = announcement.find_elements(
-                By.TAG_NAME, "td"
-            )
-            announcement_title: str = announcement_details[3].text
-            announcement_stock_name: str = announcement_details[2].text
-            announcement_link: str = (
-                announcement_details[3]
-                .find_element(By.CLASS_NAME, "doc-link")
-                .find_element(By.TAG_NAME, "a")
-                .get_attribute("href")
-            )
-            logger.debug(f"looking through {announcement_title}")
-            announcement_date: datetime = datetime.strptime(
-                announcement_details[0].text, "%d/%m/%Y %H:%M"
-            ).replace(tzinfo=HONG_KONG_TIME)
-
-            news_info = parse_announcement(
-                keywords=keywords,
-                search_str=f"{announcement_title}{announcement_stock_name}",
-                announcement_link = announcement_link,
-                announcement_date=announcement_date,
-                announcement_title=announcement_title,
-                tally=tally
-            )
-            if news_info is None:
-                break
-        log_run_results("HKX", tally=tally)
-    finally:
-        driver.quit()
-
 def scrape_bursa_my_json(sheet_dict: dict[str, list[str]]) -> None:
     ## Use their API, you can probably access it.
     keywords: list[str] = sheet_dict["keywords"]
@@ -474,4 +368,37 @@ def scrape_sse_json(sheet_dict: dict[str, list[str]]) -> None:
             )
     log_run_results("SSE", tally=tally)
 
-
+def scrape_hkx_json(sheet_dict: dict[str, list[str]]) -> None:
+    keywords: list[str] = sheet_dict["keywords"]
+    tally: RunTally = RunTally()
+    announcements: list = []
+    base_url: str = "https://www1.hkexnews.hk/listedco/listconews/sehk"
+    date_format: str = "%d/%m/%Y %H:%M"
+    # noinspection PyArgumentList
+    session: cffi_requests.Session = cffi_requests.Session(impersonate="chrome")
+    for num in range(1,3):
+        url: str = f"https://www1.hkexnews.hk/ncms/json/eds/lcisehk1relsde_{num}.json"
+        response = session.get(url)
+        response.raise_for_status()
+        announcements += response.json()["newsInfoLst"]
+    for announcement in announcements:
+        announcement_title: str = announcement["title"]
+        announcement_stock_code: str = announcement["stock"][0]["sc"]
+        announcement_stock_name: str = announcement["stock"][0]["sn"]
+        announcement_link: str = f"{base_url}{announcement["webPath"]}"
+        announcement_date: datetime = datetime.strptime(
+            announcement["relTime"],
+            date_format
+        ).replace(tzinfo=CHINA_TIME)
+        news_info = parse_announcement(
+            keywords=keywords,
+            search_str=f"{announcement_title}{announcement_stock_code}{announcement_stock_name}",
+            announcement_link=announcement_link,
+            announcement_date=announcement_date,
+            announcement_title=announcement_title,
+            tally=tally,
+            cutoff=timedelta(days=2)
+        )
+        if news_info is None:
+            break
+    log_run_results("HKX", tally=tally)
