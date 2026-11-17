@@ -144,37 +144,48 @@ def google_search_scrape(
     sheet_dict: dict[str, list[str]],
     progress_callback: Callable[[int, int, str], None] | None = None,
     status_callback: Callable[[str | None], None] | None = None,
-) -> tuple[dict[str, list[SearchResult]], list[str]]:
-    search_terms: list[str] = sheet_dict["google_search_terms"]
-    total_terms = len(search_terms)
+) -> tuple[
+    dict[str, list[SearchResult]],
+    dict[str, list[SearchResult]],
+    list[str],
+]:
+    general_results: dict[str, list[SearchResult]] = {}
+    inpex_results: dict[str, list[SearchResult]] = {}
+    result_groups = (
+        (sheet_dict.get("google_search_terms", []), general_results),
+        (sheet_dict.get("inpex_search_terms", []), inpex_results),
+    )
+    total_terms = sum(len(search_terms) for search_terms, _ in result_groups)
     base_url: str = "https://www.google.com/search?"
-    res_dict: dict[str, list[SearchResult]] = {}
     driver = Driver(uc=True, headless=True, incognito=True)
     failed_terms: list[str] = []
+    completed = 0
     try:
-        for completed, search_term in enumerate(search_terms, start=1):
-            try:
-                logger.info(f"Starting search scrape for {search_term}")
-                search_params: dict[str, str] = {
-                    "tbm": "nws",
-                    "pws": "0",
-                    "tbs": "qdr:d,sbd:1",
-                    "sbd": "1",
-                }
-                res_dict[search_term] = []
-                for page in run_search(
-                    base_url=base_url,
-                    search_term=search_term,
-                    driver=driver,
-                    search_params=search_params,
-                    status_callback=status_callback,
-                ):
-                    res_dict[search_term] += page
-            except UnexpectedPageFormatError:
-                logger.exception(f"Skipping '{search_term}' due to captcha limit.")
-                failed_terms.append(search_term)
-            if progress_callback is not None:
-                progress_callback(completed, total_terms, search_term)
-        return res_dict, failed_terms
+        for search_terms, res_dict in result_groups:
+            for search_term in search_terms:
+                try:
+                    logger.info(f"Starting search scrape for {search_term}")
+                    search_params: dict[str, str] = {
+                        "tbm": "nws",
+                        "pws": "0",
+                        "tbs": "qdr:d,sbd:1",
+                        "sbd": "1",
+                    }
+                    res_dict[search_term] = []
+                    for page in run_search(
+                        base_url=base_url,
+                        search_term=search_term,
+                        driver=driver,
+                        search_params=search_params,
+                        status_callback=status_callback,
+                    ):
+                        res_dict[search_term] += page
+                except UnexpectedPageFormatError:
+                    logger.exception(f"Skipping '{search_term}' due to captcha limit.")
+                    failed_terms.append(search_term)
+                completed += 1
+                if progress_callback is not None:
+                    progress_callback(completed, total_terms, search_term)
+        return general_results, inpex_results, failed_terms
     finally:
         driver.quit()

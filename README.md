@@ -38,8 +38,9 @@ appends relevant results to `data/news_data.csv`. A file lock protects CSV
 writes made by concurrent scraper threads.
 
 The separate Google workflow searches Google News using terms from the same
-keyword spreadsheet. Matching search results are formatted directly into an
-email report.
+keyword spreadsheet. It combines `google_search_terms` and `inpex_search_terms`
+in one browser run, then formats their results into separate email reports. The
+INPEX report uses the normal report subject with `[INPEX] ` prepended.
 ---
 
 ## Requirements
@@ -95,7 +96,9 @@ settings/service_credentials.json
 
 The spreadsheet is expected to contain a worksheet that can be exported as CSV.
 Its headings are used as keyword groups by the scrapers. Exchange searches use a
-`keywords` column, while Google News searches use a `google_search_terms` column.
+`keywords` column. Google News searches combine `google_search_terms` and
+`inpex_search_terms`, but send their results in separate reports; the INPEX
+report subject starts with `[INPEX] `.
 
 > **Security:** `settings.toml` and `service_credentials.json` contain secrets.
 > Do not commit them, paste them into issue reports, or include them in logs.

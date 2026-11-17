@@ -108,11 +108,18 @@ def _run_scrape_job(
 
 def _run_google_job(
     job_name: str, keywords_sheet: dict[str, list[str]], max_tries: int
-) -> tuple[dict[str, list[SearchResult]], list[str]]:
+) -> tuple[
+    dict[str, list[SearchResult]],
+    dict[str, list[SearchResult]],
+    list[str],
+]:
     start_time: datetime = datetime.now(GMT_PLUS_7)
+    total_terms = len(keywords_sheet["google_search_terms"]) + len(
+        keywords_sheet.get("inpex_search_terms", [])
+    )
     with ProgressBar("Google keywords") as progress:
-        progress.update(0, len(keywords_sheet["google_search_terms"]))
-        search_results, failed_jobs = _run_with_retries(
+        progress.update(0, total_terms)
+        search_results, inpex_results, failed_jobs = _run_with_retries(
             job_name=job_name,
             operation=lambda: google_search_scrape(
                 keywords_sheet,
@@ -130,7 +137,7 @@ def _run_google_job(
         f"{job_name} completed in {scrape_time.total_seconds():.1f} seconds.",
         "DONE",
     )
-    return search_results, failed_jobs
+    return search_results, inpex_results, failed_jobs
 
 
 class ScrapeOrchestrator:
@@ -219,10 +226,11 @@ class ScrapeOrchestrator:
         self._retrieve_settings(temp_path)
         job_name: str = "GoogleScrape"
         search_results: dict[str, list[SearchResult]] = {}
+        inpex_results: dict[str, list[SearchResult]] = {}
         failed_terms: list[str] = []
         try:
             try:
-                search_results, failed_terms = _run_google_job(
+                search_results, inpex_results, failed_terms = _run_google_job(
                     job_name=job_name,
                     keywords_sheet=self.keywords_sheet,
                     max_tries=self.max_tries,
@@ -242,13 +250,13 @@ class ScrapeOrchestrator:
                     "Google scrape failed after all retry attempts; admins notified.",
                     "ERROR",
                 )
+            search_subject: str = f"Relevant searches found for {datetime.now(GMT_PLUS_7).strftime('%Y-%m-%d')}"
             if search_results:
                 print_section("EMAIL DELIVERY")
                 print_cli("Google results found; preparing the results email.", "EMAIL")
                 search_body: str = email_utils.construct_search_email(
                     results=search_results
                 )
-                search_subject: str = f"Relevant searches found for {datetime.now(GMT_PLUS_7).strftime('%Y-%m-%d')}"
                 send_email(
                     subject=search_subject,
                     body=search_body,
@@ -257,6 +265,20 @@ class ScrapeOrchestrator:
                     password=self.email_settings["password"],
                 )
                 print_cli("Google results email sent.", "DONE")
+            if inpex_results:
+                print_section("INPEX EMAIL DELIVERY")
+                print_cli("INPEX results found; preparing the results email.", "EMAIL")
+                inpex_body: str = email_utils.construct_search_email(
+                    results=inpex_results
+                )
+                send_email(
+                    subject=f"[INPEX] {search_subject}",
+                    body=inpex_body,
+                    sender=self.email_settings["sender"],
+                    recipients=self.email_settings["recipients"],
+                    password=self.email_settings["password"],
+                )
+                print_cli("INPEX results email sent.", "DONE")
             if failed_terms:
                 send_email(
                     subject=f"Google scrape: {len(failed_terms)} search term(s) captcha-blocked",
@@ -266,7 +288,7 @@ class ScrapeOrchestrator:
                     recipients=self.email_settings["admin"],
                     password=self.email_settings["password"],
                 )
-            elif not any(search_results.values()):
+            elif not any(search_results.values()) and not any(inpex_results.values()):
                 send_email(
                     subject="Google scrape failed, NOTHING found.",
                     body="",

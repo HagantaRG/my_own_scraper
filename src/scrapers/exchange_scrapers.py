@@ -15,7 +15,6 @@ from src.scrapers.scrape_errors import UnexpectedPageFormatError
 from src.utils.constants import (
     CHINA_TIME,
     GMT_PLUS_7,
-    HONG_KONG_TIME,
     KUALA_LUMPUR_TIME,
     SINGAPORE_TIME,
 )
