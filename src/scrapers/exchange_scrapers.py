@@ -289,6 +289,7 @@ def scrape_sse_json(sheet_dict: dict[str, list[str]]) -> None:
 
 def scrape_hkx_json(sheet_dict: dict[str, list[str]]) -> None:
     keywords: list[str] = sheet_dict["keywords"]
+    stock_codes: list[str] = sheet_dict["stock_code_hk"]
     tally: RunTally = RunTally()
     announcements: list = []
     base_url: str = "https://www1.hkexnews.hk/listedco/listconews/sehk"
@@ -309,8 +310,13 @@ def scrape_hkx_json(sheet_dict: dict[str, list[str]]) -> None:
             announcement["relTime"],
             date_format
         ).replace(tzinfo=CHINA_TIME)
+        relevant_stock_codes: list[str] = [
+            stock_code
+            for stock_code in stock_codes
+            if stock_code == announcement_stock_code
+        ]
         news_info = parse_announcement(
-            keywords=keywords,
+            keywords=keywords + relevant_stock_codes,
             search_str=f"{announcement_title}{announcement_stock_code}{announcement_stock_name}",
             announcement_link=announcement_link,
             announcement_date=announcement_date,
