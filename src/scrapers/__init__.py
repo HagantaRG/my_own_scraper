@@ -272,7 +272,7 @@ class ScrapeOrchestrator:
                     results=inpex_results
                 )
                 send_email(
-                    subject=f"[INPEX] {search_subject}",
+                    subject=f"INPEX Google search results for {datetime.now(GMT_PLUS_7).strftime('%Y-%m-%d')}",
                     body=inpex_body,
                     sender=self.email_settings["sender"],
                     recipients=self.email_settings["recipients"],
